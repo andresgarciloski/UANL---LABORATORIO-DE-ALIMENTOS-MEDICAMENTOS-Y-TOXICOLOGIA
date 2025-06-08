@@ -82,7 +82,7 @@ class LoginWindow(tk.Tk):
 
         if verificar_login(username, password):
             self.destroy()
-            app = MainInterface()
+            app = MainInterface(username=username)  # <-- Aquí se pasa el nombre de usuario
             app.mainloop()
         else:
             messagebox.showerror("Error", "Usuario o contraseña incorrectos")
