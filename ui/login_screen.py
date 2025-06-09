@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from ui.interface import MainInterface
+from PIL import Image, ImageTk, ImageDraw
+import os
 
 from core.auth import verificar_login
 
@@ -14,7 +16,7 @@ class LoginWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("UANL FoodLab")
-        self.geometry("450x320")
+        self.geometry("500x400")  # Ventana más grande
         self.configure(bg="white")
         self.resizable(False, False)
 
@@ -34,9 +36,22 @@ class LoginWindow(tk.Tk):
         )
         title.pack(pady=15)
 
+        # Imagen de Bruni centrada arriba del formulario, más grande y circular
+        img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
+        img_path = os.path.abspath(img_path)
+        bruni_img = Image.open(img_path).resize((130, 130), Image.LANCZOS)
+        mask = Image.new('L', (130, 130), 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0, 130, 130), fill=255)
+        bruni_img.putalpha(mask)
+        bruni_photo = ImageTk.PhotoImage(bruni_img)
+        img_label = tk.Label(self, image=bruni_photo, bg="white")
+        img_label.image = bruni_photo  # Mantener referencia
+        img_label.pack(pady=(15, 0))
+
         # Contenedor del formulario
         form_frame = tk.Frame(self, bg="white")
-        form_frame.pack(pady=20)
+        form_frame.pack(pady=10)
 
         tk.Label(form_frame, text="Usuario:", font=("Segoe UI", 11), bg="white").grid(row=0, column=0, sticky="e", padx=10, pady=10)
         self.username_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=25)
