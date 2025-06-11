@@ -65,3 +65,37 @@ def eliminar_usuario(user_id):
     cursor.execute("DELETE FROM Usuarios WHERE Id=?", (user_id,))
     conn.commit()
     conn.close()
+
+def obtener_historial():
+    conn = get_connection()  # Usa tu función de conexión
+    cursor = conn.cursor()
+    cursor.execute("SELECT Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo FROM Historial")
+    rows = cursor.fetchall()
+    conn.close()
+    return [(row.Id, row.Nombre, row.Descripcion, row.Fecha, row.Hora, row.UsuarioId, row.Archivo) for row in rows]
+
+def obtener_historial_usuario(usuario_id):
+    conn = get_connection()  # Usa tu función de conexión
+    cursor = conn.cursor()
+    cursor.execute("SELECT Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo FROM Historial WHERE UsuarioId=?", (usuario_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [(row.Id, row.Nombre, row.Descripcion, row.Fecha, row.Hora, row.UsuarioId, row.Archivo) for row in rows]
+
+def obtener_id_por_username(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT Id FROM Usuarios WHERE Username=?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return row.Id if row else None
+
+def agregar_historial(nombre, descripcion, fecha, hora, usuario_id, archivo_bin):
+    conn = get_connection()  # Usa tu función de conexión
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO Historial (Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo) VALUES (?, ?, ?, ?, ?, ?)",
+        (nombre, descripcion, fecha, hora, usuario_id, archivo_bin)
+    )
+    conn.commit()
+    conn.close()

@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from PIL import Image, ImageDraw, ImageTk
 import os
+from core.auth import agregar_historial  # Debes tener esta función en tu backend
 
 class MainInterface(tk.Tk):
     def __init__(self, username=None, rol="usuario"):
@@ -280,6 +281,10 @@ class MainInterface(tk.Tk):
                 justify="center"
             )
             info.pack(pady=(0, 20))
+        elif section_name == "Historial":
+            self.show_user_historial_table()
+        elif section_name == "Exportar Excel":
+            self.show_exportar_excel()
         else:
             label = tk.Label(
                 self.content_frame,
@@ -288,3 +293,197 @@ class MainInterface(tk.Tk):
                 bg="white"
             )
             label.pack(pady=20)
+
+    def show_exportar_excel(self):
+        frame = tk.Frame(self.content_frame, bg="white")
+        frame.pack(expand=True, fill="both", padx=30, pady=20)
+
+        info = tk.Label(
+            frame,
+            text="Desde aquí puedes exportar o importar la base de datos a Excel.\n\n"
+                 "Utiliza el botón '+' para agregar un nuevo registro al historial.",
+            font=("Segoe UI", 13),
+            fg="#0B5394",
+            bg="white",
+            justify="left"
+        )
+        info.pack(anchor="nw", pady=(10, 0), padx=10)
+
+        # Botón "+" en la esquina inferior derecha
+        plus_path = os.path.join(os.path.dirname(__file__), "..", "img", "+.png")
+        plus_path = os.path.abspath(plus_path)
+        plus_img = Image.open(plus_path).resize((40, 40), Image.LANCZOS)
+        plus_icon = ImageTk.PhotoImage(plus_img)
+        self.plus_icon = plus_icon  # Mantener referencia
+
+        plus_btn = tk.Button(
+            frame,
+            image=self.plus_icon,
+            bg="white",
+            bd=0,
+            activebackground="#e6f0fa",
+            cursor="hand2",
+            command=self.add_historial_popup
+        )
+        plus_btn.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
+
+    def add_historial_popup(self):
+        popup = tk.Toplevel(self)
+        popup.title("Agregar nuevo registro al historial")
+        popup.geometry("400x500")
+        popup.configure(bg="white")
+        popup.resizable(False, False)
+        popup.grab_set()
+
+        tk.Label(popup, text="Nombre:", font=("Segoe UI", 11), bg="white").pack(pady=(20, 5))
+        nombre_entry = tk.Entry(popup, font=("Segoe UI", 11), width=30)
+        nombre_entry.pack()
+
+        tk.Label(popup, text="Descripción:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        descripcion_entry = tk.Text(popup, font=("Segoe UI", 11), width=30, height=4)
+        descripcion_entry.pack()
+
+        tk.Label(popup, text="Fecha (YYYY-MM-DD):", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        fecha_entry = tk.Entry(popup, font=("Segoe UI", 11), width=30)
+        fecha_entry.pack()
+
+        tk.Label(popup, text="Hora (HH:MM:SS):", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        hora_entry = tk.Entry(popup, font=("Segoe UI", 11), width=30)
+        hora_entry.pack()
+
+        tk.Label(popup, text="Archivo adjunto:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        archivo_var = tk.StringVar()
+        archivo_entry = tk.Entry(popup, font=("Segoe UI", 11), width=24, textvariable=archivo_var, state="readonly")
+        archivo_entry.pack(padx=(20, 0))
+        def seleccionar_archivo():
+            archivo = filedialog.askopenfilename(title="Seleccionar archivo")
+            if archivo:
+                archivo_var.set(archivo)
+        tk.Button(popup, text="Seleccionar", command=seleccionar_archivo, font=("Segoe UI", 10)).pack(pady=(0, 10), padx=10)
+
+        def guardar():
+            nombre = nombre_entry.get()
+            descripcion = descripcion_entry.get("1.0", "end").strip()
+            fecha = fecha_entry.get()
+            hora = hora_entry.get()
+            archivo_path = archivo_var.get()
+            usuario_id = self.get_usuario_id()  # Debes tener este método para obtener el id del usuario actual
+
+            if not (nombre and fecha and hora and archivo_path):
+                messagebox.showerror("Error", "Todos los campos excepto descripción son obligatorios.", parent=popup)
+                return
+
+            # Leer archivo como binario
+            try:
+                with open(archivo_path, "rb") as f:
+                    archivo_bin = f.read()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo leer el archivo: {e}", parent=popup)
+                return
+
+            try:
+                agregar_historial(nombre, descripcion, fecha, hora, usuario_id, archivo_bin)
+                messagebox.showinfo("Éxito", "Registro agregado correctamente.", parent=popup)
+                popup.destroy()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo agregar el registro: {e}", parent=popup)
+
+        tk.Button(
+            popup,
+            text="Guardar",
+            font=("Segoe UI", 11, "bold"),
+            bg="#0B5394",
+            fg="white",
+            activebackground="#073763",
+            activeforeground="white",
+            relief="flat",
+            command=guardar
+        ).pack(fill="x", padx=40, pady=20, ipady=8)
+
+    def show_user_historial_table(self):
+        # Si ya existe el frame de la tabla, destrúyelo para evitar duplicados
+        if hasattr(self, "historial_table_frame") and self.historial_table_frame is not None:
+            self.historial_table_frame.destroy()
+
+        self.historial_table_frame = tk.Frame(self.content_frame, bg="white")
+        self.historial_table_frame.pack(expand=True, fill="both", padx=30, pady=20)
+
+        # Encabezados
+        headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "UsuarioId", "Archivo", "Descargar"]
+        header_bg = "#0B5394"
+        header_fg = "white"
+        for col, h in enumerate(headers):
+            tk.Label(
+                self.historial_table_frame, text=h, font=("Segoe UI", 11, "bold"),
+                bg=header_bg, fg=header_fg, padx=10, pady=8, borderwidth=0, relief="flat"
+            ).grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 2, 2), pady=(0, 2))
+
+        # Cargar imagen de descarga
+        download_path = os.path.join(os.path.dirname(__file__), "..", "img", "download.png")
+        download_path = os.path.abspath(download_path)
+        download_img = Image.open(download_path).resize((20, 20), Image.LANCZOS)
+        download_icon = ImageTk.PhotoImage(download_img)
+        self.download_icon = download_icon  # Mantener referencia
+
+        # Obtener historial SOLO del usuario actual
+        from core.auth import obtener_historial_usuario  # Debes tener esta función en tu backend
+        usuario_id = self.get_usuario_id()  # Debes implementar este método para obtener el id del usuario actual
+        historial = obtener_historial_usuario(usuario_id)  # Debe regresar una lista de tuplas
+
+        row_bg1 = "#e6f0fa"
+        row_bg2 = "#f7fbff"
+        for row, item in enumerate(historial, start=1):
+            Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
+            bg = row_bg1 if row % 2 == 1 else row_bg2
+
+            tk.Label(self.historial_table_frame, text=Id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=0, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=Nombre, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=1, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4, wraplength=200, justify="left").grid(row=row, column=2, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=3, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=4, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=UsuarioId, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=5, sticky="nsew", padx=2, pady=1)
+            archivo_text = "Sí" if Archivo else "No"
+            tk.Label(self.historial_table_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=6, sticky="nsew", padx=2, pady=1)
+
+            # Botón para descargar archivo
+            download_btn = tk.Button(
+                self.historial_table_frame,
+                image=self.download_icon,
+                bg=bg,
+                bd=0,
+                activebackground="#b3d1f7",
+                cursor="hand2",
+                command=lambda archivo=Archivo, nombre=Nombre: self.descargar_archivo_historial(archivo, nombre)
+            )
+            download_btn.grid(row=row, column=7, padx=4, pady=1)
+
+        # Hacer columnas expandibles
+        for col in range(len(headers)):
+            self.historial_table_frame.grid_columnconfigure(col, weight=1)
+
+    def descargar_archivo_historial(self, archivo_bin, nombre):
+        if not archivo_bin:
+            messagebox.showerror("Error", "No hay archivo para descargar.")
+            return
+        # Sugerir extensión .xlsx si el nombre lo requiere
+        if not nombre.lower().endswith(".xlsx"):
+            nombre = nombre + ".xlsx"
+        file_path = filedialog.asksaveasfilename(
+            title="Guardar archivo",
+            initialfile=nombre,
+            defaultextension=".xlsx",
+            filetypes=[("Archivos Excel", "*.xlsx"), ("Todos los archivos", "*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(archivo_bin)
+                messagebox.showinfo("Éxito", f"Archivo guardado en:\n{file_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo guardar el archivo: {e}")
+
+    def get_usuario_id(self):
+        # Debes implementar la lógica para obtener el id del usuario actual.
+        # Por ejemplo, si tienes el username, consulta la base de datos para obtener el id.
+        from core.auth import obtener_id_por_username
+        return obtener_id_por_username(self.username)

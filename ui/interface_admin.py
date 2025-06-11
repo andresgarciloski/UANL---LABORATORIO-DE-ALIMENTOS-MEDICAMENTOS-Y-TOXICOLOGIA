@@ -1,9 +1,13 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from PIL import Image, ImageDraw, ImageTk
 import os
+import pandas as pd
+import zipfile
+import io
+import datetime
 
-from core.auth import obtener_usuarios, actualizar_usuario, eliminar_usuario  # Asegúrate de tener eliminar_usuario en tu backend
+from core.auth import obtener_usuarios, actualizar_usuario, eliminar_usuario, obtener_historial, agregar_historial  # Agrega obtener_historial y agregar_historial a tu backend
 
 class MainInterfaceAdmin(tk.Tk):
     def __init__(self, username=None, rol="admin"):
@@ -277,7 +281,10 @@ class MainInterfaceAdmin(tk.Tk):
             info.pack(pady=(0, 20))
         elif section_name == "Usuarios":
             self.show_users_table()
-
+        elif section_name == "Registro":
+            self.show_historial_table()
+        elif section_name == "Exportar/Importar DB":
+            self.show_exportar_excel()
         else:
             label = tk.Label(
                 self.content_frame,
@@ -445,3 +452,253 @@ class MainInterfaceAdmin(tk.Tk):
                 self.show_users_table()  # Refresca la tabla
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar el usuario: {e}")
+
+    def show_historial_table(self):
+        # Si ya existe el frame de la tabla, destrúyelo para evitar duplicados
+        if hasattr(self, "historial_table_frame") and self.historial_table_frame is not None:
+            self.historial_table_frame.destroy()
+
+        self.historial_table_frame = tk.Frame(self.content_frame, bg="white")
+        self.historial_table_frame.pack(expand=True, fill="both", padx=30, pady=20)
+
+        # Encabezados
+        headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "UsuarioId", "Archivo", "Descargar"]
+        header_bg = "#0B5394"
+        header_fg = "white"
+        for col, h in enumerate(headers):
+            tk.Label(
+                self.historial_table_frame, text=h, font=("Segoe UI", 11, "bold"),
+                bg=header_bg, fg=header_fg, padx=10, pady=8, borderwidth=0, relief="flat"
+            ).grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 2, 2), pady=(0, 2))
+
+        # Cargar imagen de descarga
+        download_path = os.path.join(os.path.dirname(__file__), "..", "img", "download.png")
+        download_path = os.path.abspath(download_path)
+        download_img = Image.open(download_path).resize((20, 20), Image.LANCZOS)
+        download_icon = ImageTk.PhotoImage(download_img)
+        self.download_icon = download_icon  # Mantener referencia
+
+        # Obtener historial de la base de datos
+        historial = obtener_historial()  # Debe regresar una lista de tuplas: (Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo)
+
+        row_bg1 = "#e6f0fa"
+        row_bg2 = "#f7fbff"
+        for row, item in enumerate(historial, start=1):
+            Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
+            bg = row_bg1 if row % 2 == 1 else row_bg2
+
+            tk.Label(self.historial_table_frame, text=Id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=0, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=Nombre, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=1, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4, wraplength=200, justify="left").grid(row=row, column=2, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=3, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=4, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=UsuarioId, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=5, sticky="nsew", padx=2, pady=1)
+            archivo_text = "Sí" if Archivo else "No"
+            tk.Label(self.historial_table_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=6, sticky="nsew", padx=2, pady=1)
+
+            # Botón para descargar archivo
+            download_btn = tk.Button(
+                self.historial_table_frame,
+                image=self.download_icon,
+                bg=bg,
+                bd=0,
+                activebackground="#b3d1f7",
+                cursor="hand2",
+                command=lambda archivo=Archivo, nombre=Nombre: self.descargar_archivo_historial(archivo, nombre)
+            )
+            download_btn.grid(row=row, column=7, padx=4, pady=1)
+
+        # Hacer columnas expandibles
+        for col in range(len(headers)):
+            self.historial_table_frame.grid_columnconfigure(col, weight=1)
+
+    def descargar_archivo_historial(self, archivo_bin, nombre):
+        if not archivo_bin:
+            messagebox.showerror("Error", "No hay archivo para descargar.")
+            return
+        # Sugerir extensión .xlsx si el nombre lo requiere
+        if not nombre.lower().endswith(".xlsx"):
+            nombre = nombre + ".xlsx"
+        file_path = filedialog.asksaveasfilename(
+            title="Guardar archivo",
+            initialfile=nombre,
+            defaultextension=".xlsx",
+            filetypes=[("Archivos Excel", "*.xlsx"), ("Todos los archivos", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(archivo_bin)
+                messagebox.showinfo("Éxito", f"Archivo guardado en:\n{file_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo guardar el archivo: {e}")
+
+    def show_exportar_excel(self):
+        frame = tk.Frame(self.content_frame, bg="white")
+        frame.pack(expand=True, fill="both", padx=30, pady=20)
+
+        # Fondo decorativo (opcional, puedes quitarlo si no te gusta)
+        decor = tk.Frame(frame, bg="#e6f0fa", bd=2, relief="ridge")
+        decor.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.7, relheight=0.7)
+
+        # Texto informativo centrado y estilizado
+        info = tk.Label(
+            decor,
+            text=(
+                "Exportar / Importar Base de Datos\n\n"
+                "Puedes exportar todos los registros y archivos adjuntos de la base de datos\n"
+                "en un solo archivo ZIP. También puedes importar un ZIP previamente exportado\n"
+                "para restaurar o migrar los registros y archivos.\n\n"
+                "Haz clic en el botón 'Exportar' para descargar la base de datos completa.\n"
+                "Haz clic en el botón 'Importar' para cargar registros desde un archivo ZIP."
+            ),
+            font=("Segoe UI", 14, "bold"),
+            fg="#0B5394",
+            bg="#e6f0fa",
+            justify="center",
+            wraplength=500
+        )
+        info.place(relx=0.5, rely=0.3, anchor="center")
+
+        # Cargar imágenes de los botones
+        upload_path = os.path.join(os.path.dirname(__file__), "..", "img", "upload.png")
+        upload_path = os.path.abspath(upload_path)
+        upload_img = Image.open(upload_path).resize((30, 30), Image.LANCZOS)
+        upload_icon = ImageTk.PhotoImage(upload_img)
+        self.upload_icon = upload_icon  # Mantener referencia
+
+        download_path = os.path.join(os.path.dirname(__file__), "..", "img", "download.png")
+        download_path = os.path.abspath(download_path)
+        download_img = Image.open(download_path).resize((30, 30), Image.LANCZOS)
+        download_icon = ImageTk.PhotoImage(download_img)
+        self.download_icon = download_icon  # Mantener referencia
+
+        # Botones centrados y estilizados
+        btn_frame = tk.Frame(decor, bg="#e6f0fa")
+        btn_frame.place(relx=0.5, rely=0.7, anchor="center")
+
+        export_btn = tk.Button(
+            btn_frame,
+            text=" Exportar",
+            image=self.upload_icon,
+            compound="left",
+            font=("Segoe UI", 12, "bold"),
+            bg="#0B5394",
+            fg="white",
+            activebackground="#073763",
+            activeforeground="white",
+            relief="flat",
+            padx=20,
+            pady=10,
+            cursor="hand2",
+            command=self.exportar_excel
+        )
+        export_btn.pack(side="left", padx=30, pady=10)
+
+        import_btn = tk.Button(
+            btn_frame,
+            text=" Importar",
+            image=self.download_icon,
+            compound="left",
+            font=("Segoe UI", 12, "bold"),
+            bg="#0B5394",
+            fg="white",
+            activebackground="#073763",
+            activeforeground="white",
+            relief="flat",
+            padx=20,
+            pady=10,
+            cursor="hand2",
+            command=self.importar_excel
+        )
+        import_btn.pack(side="left", padx=30, pady=10)
+
+    def exportar_excel(self):
+        try:
+            historial = obtener_historial()  # [(Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo)]
+            if not historial:
+                messagebox.showinfo("Exportar", "No hay registros para exportar.")
+                return
+
+            # Prepara DataFrame y nombres de archivos
+            data = []
+            archivos = []
+            for row in historial:
+                Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = row
+                archivo_nombre = f"{Id}_{Nombre}.bin" if Archivo else ""
+                data.append([Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, archivo_nombre])
+                if Archivo:
+                    archivos.append((archivo_nombre, Archivo))
+
+            df = pd.DataFrame(data, columns=["Id", "Nombre", "Descripcion", "Fecha", "Hora", "UsuarioId", "ArchivoNombre"])
+
+            # Generar nombre de archivo con fecha y hora actual
+            now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            default_filename = f"export_{now}.zip"
+
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".zip",
+                filetypes=[("Archivo ZIP", "*.zip")],
+                title="Guardar como",
+                initialfile=default_filename
+            )
+            if not file_path:
+                return
+
+            with zipfile.ZipFile(file_path, "w") as zf:
+                # Guarda el Excel dentro del ZIP
+                excel_buffer = io.BytesIO()
+                df.to_excel(excel_buffer, index=False)
+                zf.writestr("historial.xlsx", excel_buffer.getvalue())
+                # Guarda cada archivo binario
+                for archivo_nombre, archivo_bin in archivos:
+                    zf.writestr(archivo_nombre, archivo_bin)
+
+            messagebox.showinfo("Exportar", f"Archivo ZIP exportado correctamente:\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar: {e}")
+
+    def importar_excel(self):
+        from core.auth import agregar_historial
+        import zipfile
+        import io
+
+        try:
+            file_path = filedialog.askopenfilename(
+                filetypes=[("Archivo ZIP", "*.zip")],
+                title="Seleccionar archivo ZIP"
+            )
+            if not file_path:
+                return
+
+            with zipfile.ZipFile(file_path, "r") as zf:
+                # Lee el Excel
+                with zf.open("historial.xlsx") as excel_file:
+                    df = pd.read_excel(excel_file)
+                # Lee los archivos binarios
+                archivos_bin = {}
+                for name in zf.namelist():
+                    if name != "historial.xlsx":
+                        archivos_bin[name] = zf.read(name)
+
+            required_cols = {"Nombre", "Descripcion", "Fecha", "Hora", "UsuarioId", "ArchivoNombre"}
+            if not required_cols.issubset(df.columns):
+                messagebox.showerror("Error", "El archivo no tiene el formato correcto.")
+                return
+
+            count = 0
+            for _, row in df.iterrows():
+                nombre = row["Nombre"]
+                descripcion = row["Descripcion"]
+                fecha = str(row["Fecha"]).split(" ")[0]
+                hora = str(row["Hora"])
+                usuario_id = int(row["UsuarioId"])
+                archivo_nombre = row["ArchivoNombre"]
+                archivo_bin = archivos_bin.get(archivo_nombre, b"") if archivo_nombre else b""
+                agregar_historial(nombre, descripcion, fecha, hora, usuario_id, archivo_bin)
+                count += 1
+
+            messagebox.showinfo("Importar", f"Se importaron {count} registros correctamente.")
+            self.show_historial_table()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo importar: {e}")
