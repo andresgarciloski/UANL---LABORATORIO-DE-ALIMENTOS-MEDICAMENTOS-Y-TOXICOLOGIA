@@ -1,6 +1,6 @@
 USE [master]
 GO
-/****** Object:  Database [FCQ]    Script Date: 08/06/2025 01:00:22 p. m. ******/
+/****** Object:  Database [FCQ]    Script Date: 10/06/2025 04:57:55 p. m. ******/
 CREATE DATABASE [FCQ]
  CONTAINMENT = NONE
  ON  PRIMARY 
@@ -82,17 +82,18 @@ ALTER DATABASE [FCQ] SET QUERY_STORE (OPERATION_MODE = READ_WRITE, CLEANUP_POLIC
 GO
 USE [FCQ]
 GO
-/****** Object:  Table [dbo].[ArchivosExportados]    Script Date: 08/06/2025 01:00:23 p. m. ******/
+/****** Object:  Table [dbo].[Historial]    Script Date: 10/06/2025 04:57:56 p. m. ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TABLE [dbo].[ArchivosExportados](
+CREATE TABLE [dbo].[Historial](
 	[Id] [int] IDENTITY(1,1) NOT NULL,
-	[UsuarioId] [int] NOT NULL,
 	[Nombre] [nvarchar](255) NOT NULL,
 	[Descripcion] [nvarchar](500) NULL,
-	[FechaExportacion] [datetime] NULL,
+	[Fecha] [date] NOT NULL,
+	[Hora] [time](7) NOT NULL,
+	[UsuarioId] [int] NOT NULL,
 	[Archivo] [varbinary](max) NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
@@ -100,7 +101,7 @@ PRIMARY KEY CLUSTERED
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[Usuarios]    Script Date: 08/06/2025 01:00:23 p. m. ******/
+/****** Object:  Table [dbo].[Usuarios]    Script Date: 10/06/2025 04:57:56 p. m. ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -111,6 +112,7 @@ CREATE TABLE [dbo].[Usuarios](
 	[PasswordHash] [nvarchar](255) NOT NULL,
 	[Email] [nvarchar](100) NULL,
 	[CreatedAt] [datetime] NULL,
+	[Rol] [nvarchar](20) NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[Id] ASC
@@ -121,11 +123,15 @@ UNIQUE NONCLUSTERED
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[ArchivosExportados] ADD  DEFAULT (getdate()) FOR [FechaExportacion]
+ALTER TABLE [dbo].[Historial] ADD  DEFAULT (CONVERT([date],getdate())) FOR [Fecha]
+GO
+ALTER TABLE [dbo].[Historial] ADD  DEFAULT (CONVERT([time],getdate())) FOR [Hora]
 GO
 ALTER TABLE [dbo].[Usuarios] ADD  DEFAULT (getdate()) FOR [CreatedAt]
 GO
-ALTER TABLE [dbo].[ArchivosExportados]  WITH CHECK ADD FOREIGN KEY([UsuarioId])
+ALTER TABLE [dbo].[Usuarios] ADD  DEFAULT ('usuario') FOR [Rol]
+GO
+ALTER TABLE [dbo].[Historial]  WITH CHECK ADD FOREIGN KEY([UsuarioId])
 REFERENCES [dbo].[Usuarios] ([Id])
 GO
 USE [master]

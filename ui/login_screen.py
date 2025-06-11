@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from ui.interface import MainInterface
+from ui.interface_admin import MainInterfaceAdmin  # Agrega este import al inicio
 from PIL import Image, ImageTk, ImageDraw
 import os
 
@@ -16,7 +17,7 @@ class LoginWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("UANL FoodLab")
-        self.geometry("500x400")  # Ventana más grande
+        self.geometry("420x480")  # Tamaño más compacto y estético
         self.configure(bg="white")
         self.resizable(False, False)
 
@@ -34,7 +35,23 @@ class LoginWindow(tk.Tk):
             fg="white",
             font=("Segoe UI", 14, "bold")
         )
-        title.pack(pady=15)
+        title.pack(pady=15, side="left")
+
+        # Botón solo para admins (icono en la esquina superior derecha)
+        admin_img_path = os.path.join(os.path.dirname(__file__), "..", "img", "admin.png")
+        admin_img_path = os.path.abspath(admin_img_path)
+        admin_img = Image.open(admin_img_path).resize((28, 28), Image.LANCZOS)
+        self.admin_icon = ImageTk.PhotoImage(admin_img)
+        admin_btn = tk.Button(
+            header,
+            image=self.admin_icon,
+            bg="#0B5394",
+            bd=0,
+            activebackground="#073763",
+            cursor="hand2",
+            command=self.open_admin_login
+        )
+        admin_btn.pack(side="right", padx=18, pady=10)
 
         # Imagen de Bruni centrada arriba del formulario, más grande y circular
         img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
@@ -61,9 +78,13 @@ class LoginWindow(tk.Tk):
         self.password_entry = tk.Entry(form_frame, show="*", font=("Segoe UI", 11), width=25)
         self.password_entry.grid(row=1, column=1, padx=10)
 
-        # Botón iniciar sesión
+        # Frame para los botones debajo del formulario
+        btn_frame = tk.Frame(self, bg="white")
+        btn_frame.pack(pady=10)
+
+        # Botón iniciar sesión (usuario normal o admin)
         login_btn = tk.Button(
-            self,
+            btn_frame,
             text="Iniciar Sesión",
             font=("Segoe UI", 11, "bold"),
             bg="#0B5394",
@@ -74,11 +95,11 @@ class LoginWindow(tk.Tk):
             width=20,
             command=self.authenticate
         )
-        login_btn.pack(pady=10)
+        login_btn.pack(pady=(5, 12))  # Más espacio debajo
 
-        # Botón registrarse
+        # Botón registrarse (queda igual)
         register_btn = tk.Button(
-            self,
+            btn_frame,
             text="Registrarse",
             font=("Segoe UI", 10),
             bg="white",
@@ -95,12 +116,57 @@ class LoginWindow(tk.Tk):
         username = self.username_entry.get()
         password = self.password_entry.get()
 
-        if verificar_login(username, password):
-            self.destroy()
-            app = MainInterface(username=username)  # <-- Aquí se pasa el nombre de usuario
-            app.mainloop()
+        result = verificar_login(username, password)
+        if isinstance(result, tuple) and result[0] is True:
+            rol = result[1]
+            if rol == "usuario":
+                self.destroy()
+                app = MainInterface(username=username, rol=rol)
+                app.mainloop()
+            else:
+                messagebox.showerror("Acceso denegado", "Solo los usuarios pueden acceder desde este login.")
         else:
             messagebox.showerror("Error", "Usuario o contraseña incorrectos")
+
+    def open_admin_login(self):
+        admin_win = tk.Toplevel(self)
+        admin_win.title("Acceso Administrador")
+        admin_win.geometry("350x220")
+        admin_win.configure(bg="white")
+        admin_win.resizable(False, False)
+        admin_win.grab_set()
+
+        tk.Label(admin_win, text="Usuario Admin:", font=("Segoe UI", 11), bg="white").pack(pady=(20, 5))
+        username_entry = tk.Entry(admin_win, font=("Segoe UI", 11), width=25)
+        username_entry.pack()
+
+        tk.Label(admin_win, text="Contraseña:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        password_entry = tk.Entry(admin_win, show="*", font=("Segoe UI", 11), width=25)
+        password_entry.pack()
+
+        def admin_login():
+            username = username_entry.get()
+            password = password_entry.get()
+            result = verificar_login(username, password)
+            if isinstance(result, tuple) and result[0] is True and result[1] == "admin":
+                admin_win.destroy()
+                self.destroy()
+                app = MainInterfaceAdmin(username=username, rol="admin")
+                app.mainloop()
+            else:
+                messagebox.showerror("Acceso denegado", "Solo los administradores pueden acceder aquí.", parent=admin_win)
+
+        tk.Button(
+            admin_win,
+            text="Entrar",
+            font=("Segoe UI", 11, "bold"),
+            bg="#0B5394",
+            fg="white",
+            activebackground="#073763",
+            activeforeground="white",
+            relief="flat",
+            command=admin_login
+        ).pack(fill="x", padx=40, pady=20, ipady=8)
 
     def register_user(self):
         if crear_usuario is None:
@@ -137,13 +203,13 @@ class LoginWindow(tk.Tk):
                 return
 
             try:
+                # El rol "usuario" debe ser asignado por defecto en la función crear_usuario del backend
                 crear_usuario(username, password, email)
                 messagebox.showinfo("Registro exitoso", "Usuario registrado correctamente. Ahora puedes iniciar sesión.", parent=reg_win)
                 reg_win.destroy()
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo registrar el usuario: {e}", parent=reg_win)
 
-                # Botón registrar (mejor alineado y con padding)
         tk.Button(
             reg_win,
             text="Registrar",

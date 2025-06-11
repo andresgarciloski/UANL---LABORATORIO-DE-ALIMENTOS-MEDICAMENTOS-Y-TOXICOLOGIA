@@ -3,8 +3,10 @@ from tkinter import messagebox
 from PIL import Image, ImageDraw, ImageTk
 import os
 
-class MainInterface(tk.Tk):
-    def __init__(self, username=None, rol="usuario"):
+from core.auth import obtener_usuarios, actualizar_usuario, eliminar_usuario  # Asegúrate de tener eliminar_usuario en tu backend
+
+class MainInterfaceAdmin(tk.Tk):
+    def __init__(self, username=None, rol="admin"):
         super().__init__()
         self.title("UANL FoodLab")
         self.geometry("1000x600")
@@ -102,8 +104,6 @@ class MainInterface(tk.Tk):
         self.menu_frame = tk.Toplevel(self)
         self.menu_frame.overrideredirect(True)
         self.menu_frame.attributes('-topmost', True)
-        # Elimina la línea de transparencia:
-        # self.menu_frame.attributes('-alpha', 0.93)
         self.menu_frame.configure(bg="#0B5394")  # Mismo color que el header
 
         self.update_side_menu_geometry()
@@ -118,7 +118,8 @@ class MainInterface(tk.Tk):
         )
         menu_label.pack(pady=(25, 15), anchor="w", padx=30)
 
-        sections = ["Inicio", "Cálculos", "Exportar Excel", "Historial"]
+        # Solo las opciones requeridas para admin
+        sections = ["Exportar/Importar DB", "Usuarios", "Registro"]
         self.menu_buttons = []
         for section in sections:
             btn = tk.Button(
@@ -265,14 +266,8 @@ class MainInterface(tk.Tk):
             info = tk.Label(
                 frame,
                 text=(
-                    "Este sistema es parte del Laboratorio de Alimentos de la\n"
-                    "Facultad de Ciencias Químicas - UANL.\n\n"
-                    "Aquí podrás realizar cálculos, exportar reportes y consultar tu historial.\n"
-                    "¡Gracias por formar parte de la comunidad científica de la FCQ-UANL!\n\n"
-                    "Facultad de Ciencias Químicas\n"
-                    "Universidad Autónoma de Nuevo León\n"
-                    "www.fcq.uanl.mx\n"
-                    "Av. Universidad S/N, Cd. Universitaria, San Nicolás de los Garza, N.L."
+                    "Panel exclusivo para administración de la base de datos.\n"
+                    "Utiliza las opciones del menú lateral para exportar o importar la base de datos."
                 ),
                 font=("Segoe UI", 13),
                 fg="#333333",
@@ -280,6 +275,9 @@ class MainInterface(tk.Tk):
                 justify="center"
             )
             info.pack(pady=(0, 20))
+        elif section_name == "Usuarios":
+            self.show_users_table()
+
         else:
             label = tk.Label(
                 self.content_frame,
@@ -288,3 +286,162 @@ class MainInterface(tk.Tk):
                 bg="white"
             )
             label.pack(pady=20)
+
+    def show_users_table(self):
+        # Si ya existe el frame de la tabla, destrúyelo para evitar duplicados
+        if hasattr(self, "users_table_frame") and self.users_table_frame is not None:
+            self.users_table_frame.destroy()
+
+        self.users_table_frame = tk.Frame(self.content_frame, bg="white")
+        self.users_table_frame.pack(expand=True, fill="both", padx=30, pady=20)
+
+        # Encabezados con diseño azul
+        headers = ["ID", "Usuario", "Email", "Rol", "Editar", "Eliminar"]
+        header_bg = "#0B5394"
+        header_fg = "white"
+        for col, h in enumerate(headers):
+            tk.Label(
+                self.users_table_frame, text=h, font=("Segoe UI", 11, "bold"),
+                bg=header_bg, fg=header_fg, padx=10, pady=8, borderwidth=0, relief="flat"
+            ).grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 2, 2), pady=(0, 2))
+
+        # Cargar imagen de lápiz y basura
+        lapiz_path = os.path.join(os.path.dirname(__file__), "..", "img", "lapiz.png")
+        lapiz_path = os.path.abspath(lapiz_path)
+        lapiz_img = Image.open(lapiz_path).resize((20, 20), Image.LANCZOS)
+        lapiz_icon = ImageTk.PhotoImage(lapiz_img)
+        self.lapiz_icon = lapiz_icon  # Mantener referencia
+
+        basura_path = os.path.join(os.path.dirname(__file__), "..", "img", "basura.png")
+        basura_path = os.path.abspath(basura_path)
+        basura_img = Image.open(basura_path).resize((20, 20), Image.LANCZOS)
+        basura_icon = ImageTk.PhotoImage(basura_img)
+        self.basura_icon = basura_icon  # Mantener referencia
+
+        # Obtener usuarios de la base de datos
+        usuarios = obtener_usuarios()  # Debe regresar una lista de tuplas: (id, username, email, rol)
+
+        row_bg1 = "#e6f0fa"
+        row_bg2 = "#f7fbff"
+        for row, user in enumerate(usuarios, start=1):
+            user_id, username, email, rol = user
+            bg = row_bg1 if row % 2 == 1 else row_bg2
+
+            tk.Label(self.users_table_frame, text=user_id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=0, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.users_table_frame, text=username, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=1, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.users_table_frame, text=email, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=2, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.users_table_frame, text=rol, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=3, sticky="nsew", padx=2, pady=1)
+
+            edit_btn = tk.Button(
+                self.users_table_frame,
+                image=self.lapiz_icon,
+                bg=bg,
+                bd=0,
+                activebackground="#b3d1f7",
+                cursor="hand2",
+                command=lambda u=user: self.edit_user_popup(u)
+            )
+            edit_btn.grid(row=row, column=4, padx=4, pady=1)
+
+            delete_btn = tk.Button(
+                self.users_table_frame,
+                image=self.basura_icon,
+                bg=bg,
+                bd=0,
+                activebackground="#f7bdbd",
+                cursor="hand2",
+                command=lambda uid=user_id: self.delete_user(uid)
+            )
+            delete_btn.grid(row=row, column=5, padx=4, pady=1)
+
+        # Hacer columnas expandibles
+        for col in range(len(headers)):
+            self.users_table_frame.grid_columnconfigure(col, weight=1)
+
+    def edit_user_popup(self, user):
+        user_id, username, email, rol = user
+        popup = tk.Toplevel(self)
+        popup.title(f"Editar usuario: {username}")
+        popup.geometry("350x370")
+        popup.configure(bg="white")
+        popup.resizable(False, False)
+        popup.grab_set()
+
+        tk.Label(popup, text="Usuario:", font=("Segoe UI", 11), bg="white").pack(pady=(20, 5))
+        username_entry = tk.Entry(popup, font=("Segoe UI", 11), width=25)
+        username_entry.insert(0, username)
+        username_entry.pack()
+
+        tk.Label(popup, text="Email:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        email_entry = tk.Entry(popup, font=("Segoe UI", 11), width=25)
+        email_entry.insert(0, email)
+        email_entry.pack()
+
+        tk.Label(popup, text="Contraseña nueva:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        password_entry = tk.Entry(popup, font=("Segoe UI", 11), width=25, show="*")
+        password_entry.pack()
+        tk.Label(popup, text="(Déjalo vacío si no deseas cambiar la contraseña)", font=("Segoe UI", 9), bg="white", fg="#888").pack(pady=(0, 5))
+
+        tk.Label(popup, text="Rol:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        rol_var = tk.StringVar(value=rol)
+        rol_frame = tk.Frame(popup, bg="white")
+        rol_frame.pack()
+        tk.Radiobutton(rol_frame, text="usuario", variable=rol_var, value="usuario", font=("Segoe UI", 10), bg="white").pack(side="left", padx=10)
+        tk.Radiobutton(rol_frame, text="admin", variable=rol_var, value="admin", font=("Segoe UI", 10), bg="white").pack(side="left", padx=10)
+
+        def save_changes():
+            nuevo_username = username_entry.get()
+            nuevo_email = email_entry.get()
+            nuevo_rol = rol_var.get()
+            nueva_contra = password_entry.get()
+            try:
+                # Si la contraseña está vacía, no la cambies
+                if nueva_contra.strip():
+                    actualizar_usuario(user_id, nuevo_username, nuevo_email, nuevo_rol, nueva_contra)
+                else:
+                    actualizar_usuario(user_id, nuevo_username, nuevo_email, nuevo_rol, None)
+                messagebox.showinfo("Éxito", "Usuario actualizado correctamente.", parent=popup)
+                popup.destroy()
+                self.update_user_row(user_id, nuevo_username, nuevo_email, nuevo_rol)
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo actualizar el usuario: {e}", parent=popup)
+
+        tk.Button(
+            popup,
+            text="Guardar cambios",
+            font=("Segoe UI", 11, "bold"),
+            bg="#0B5394",
+            fg="white",
+            activebackground="#073763",
+            activeforeground="white",
+            relief="flat",
+            command=save_changes
+        ).pack(fill="x", padx=40, pady=20, ipady=8)
+
+    def update_user_row(self, user_id, nuevo_username, nuevo_email, nuevo_rol):
+        # Busca la fila correspondiente y actualiza solo los valores de esa fila
+        for widget in self.users_table_frame.winfo_children():
+            info = widget.grid_info()
+            if info.get("row") is not None and info.get("column") == 0:
+                if str(widget.cget("text")) == str(user_id):
+                    row = info["row"]
+                    # Actualiza los campos de esa fila
+                    for w in self.users_table_frame.winfo_children():
+                        if w.grid_info().get("row") == row:
+                            col = w.grid_info().get("column")
+                            if col == 1:
+                                w.config(text=nuevo_username)
+                            elif col == 2:
+                                w.config(text=nuevo_email)
+                            elif col == 3:
+                                w.config(text=nuevo_rol)
+                    break
+
+    def delete_user(self, user_id):
+        if messagebox.askyesno("Eliminar usuario", "¿Estás seguro de que deseas eliminar este usuario?"):
+            try:
+                eliminar_usuario(user_id)
+                messagebox.showinfo("Éxito", "Usuario eliminado correctamente.")
+                self.show_users_table()  # Refresca la tabla
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo eliminar el usuario: {e}")
