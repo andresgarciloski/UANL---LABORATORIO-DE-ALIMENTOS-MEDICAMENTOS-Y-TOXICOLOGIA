@@ -6,6 +6,7 @@ import pandas as pd
 import zipfile
 import io
 import datetime
+from tkcalendar import DateEntry  # Agrega esto al inicio del archivo
 
 from core.auth import obtener_usuarios, actualizar_usuario, eliminar_usuario, obtener_historial, agregar_historial, crear_usuario  # Agrega obtener_historial y agregar_historial a tu backend
 
@@ -486,17 +487,101 @@ class MainInterfaceAdmin(tk.Tk):
             self.historial_table_frame.destroy()
 
         self.historial_table_frame = tk.Frame(self.content_frame, bg="white")
-        self.historial_table_frame.pack(expand=True, fill="both", padx=30, pady=20)
+        self.historial_table_frame.pack(expand=True, fill="both", padx=0, pady=0)
 
-        # Encabezados
+        # --- FILTROS --- SIEMPRE SE CREAN NUEVOS ---
+        filtro_frame = tk.Frame(self.historial_table_frame, bg="white")
+        filtro_frame.grid(row=0, column=0, columnspan=9, sticky="ew", pady=(0, 10), padx=30)
+        self.historial_table_frame.grid_rowconfigure(0, weight=0)
+        self.historial_table_frame.grid_columnconfigure(0, weight=1)
+
+        self.usuario_id_var = tk.StringVar()
+        self.nombre_var = tk.StringVar()
+        self.fecha_var = tk.StringVar()
+
+        tk.Label(filtro_frame, text="Usuario ID:", bg="white", font=("Segoe UI", 10)).pack(side="left", padx=(0, 5))
+        usuario_id_entry = tk.Entry(filtro_frame, textvariable=self.usuario_id_var, width=8, font=("Segoe UI", 10))
+        usuario_id_entry.pack(side="left", padx=(0, 10))
+
+        tk.Label(filtro_frame, text="Nombre:", bg="white", font=("Segoe UI", 10)).pack(side="left", padx=(0, 5))
+        nombre_entry = tk.Entry(filtro_frame, textvariable=self.nombre_var, width=15, font=("Segoe UI", 10))
+        nombre_entry.pack(side="left", padx=(0, 10))
+
+        tk.Label(filtro_frame, text="Fecha:", bg="white", font=("Segoe UI", 10)).pack(side="left", padx=(0, 5))
+        self.fecha_entry = DateEntry(filtro_frame, textvariable=self.fecha_var, width=12, date_pattern="yyyy-mm-dd", background="#0B5394", foreground="white", font=("Segoe UI", 10))
+        self.fecha_entry.pack(side="left", padx=(0, 10))
+
+        def aplicar_filtro():
+            self._actualizar_tabla_historial_filtrada()
+
+        def limpiar_filtro():
+            self.usuario_id_var.set("")
+            self.nombre_var.set("")
+            self.fecha_var.set("")
+            self._actualizar_tabla_historial_filtrada()
+
+        tk.Button(filtro_frame, text="Filtrar", command=aplicar_filtro, bg="#0B5394", fg="white", font=("Segoe UI", 10, "bold"), relief="flat", padx=12, pady=2, cursor="hand2").pack(side="left", padx=10)
+        tk.Button(filtro_frame, text="Limpiar", command=limpiar_filtro, bg="#888", fg="white", font=("Segoe UI", 10), relief="flat", padx=10, pady=2, cursor="hand2").pack(side="left", padx=5)
+
+        # --- Tabla con Scrollbar ---
+        if hasattr(self, "table_container") and self.table_container is not None:
+            self.table_container.destroy()
+
+        self.table_container = tk.Frame(self.historial_table_frame, bg="white", highlightbackground="#b3c6e7", highlightthickness=1)
+        self.table_container.grid(row=1, column=0, sticky="nsew", padx=0, pady=(0, 0))
+        self.historial_table_frame.grid_rowconfigure(1, weight=1)
+        self.historial_table_frame.grid_columnconfigure(0, weight=1)
+
+        canvas = tk.Canvas(self.table_container, bg="white", highlightthickness=0)
+        scrollbar = tk.Scrollbar(self.table_container, orient="vertical", command=canvas.yview)
+        self.tabla_historial_frame = tk.Frame(canvas, bg="white")
+
+        self.tabla_historial_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.create_window((0, 0), window=self.tabla_historial_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self._actualizar_tabla_historial_filtrada()
+
+    def _actualizar_tabla_historial_filtrada(self):
+        # Borra la tabla anterior si existe
+        for widget in self.tabla_historial_frame.winfo_children():
+            widget.destroy()
+
+        usuario_id = self.usuario_id_var.get()
+        nombre = self.nombre_var.get()
+        fecha = self.fecha_var.get()
+
+        historial = obtener_historial()
+        filtrado = []
+        for item in historial:
+            Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
+            if usuario_id and str(UsuarioId) != usuario_id:
+                continue
+            if nombre and nombre.lower() not in str(Nombre).lower():
+                continue
+            if fecha and str(Fecha) != fecha:
+                continue
+            filtrado.append(item)
+        self._pintar_historial_tabla(filtrado, start_row=0, parent_frame=self.tabla_historial_frame)
+
+    def _pintar_historial_tabla(self, historial, start_row=0, parent_frame=None):
+        if parent_frame is None:
+            parent_frame = self.tabla_historial_frame
+
         headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "UsuarioId", "Archivo", "Descargar", "Eliminar"]
         header_bg = "#0B5394"
         header_fg = "white"
         for col, h in enumerate(headers):
             tk.Label(
-                self.historial_table_frame, text=h, font=("Segoe UI", 11, "bold"),
-                bg=header_bg, fg=header_fg, padx=10, pady=8, borderwidth=0, relief="flat"
-            ).grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 2, 2), pady=(0, 2))
+                parent_frame, text=h, font=("Segoe UI", 11, "bold"),
+                bg=header_bg, fg=header_fg, padx=10, pady=10, borderwidth=0, relief="flat"
+            ).grid(row=start_row, column=col, sticky="nsew", padx=1, pady=1)
 
         # Cargar imagen de descarga
         download_path = os.path.join(os.path.dirname(__file__), "..", "img", "download.png")
@@ -512,27 +597,24 @@ class MainInterfaceAdmin(tk.Tk):
         trash_icon = ImageTk.PhotoImage(trash_img)
         self.trash_icon = trash_icon  # Mantener referencia
 
-        # Obtener historial de la base de datos
-        historial = obtener_historial()  # Debe regresar una lista de tuplas: (Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo)
-
-        row_bg1 = "#e6f0fa"
-        row_bg2 = "#f7fbff"
-        for row, item in enumerate(historial, start=1):
+        row_bg1 = "#f4f8fb"
+        row_bg2 = "#e6f0fa"
+        for row, item in enumerate(historial, start=start_row+1):
             Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
             bg = row_bg1 if row % 2 == 1 else row_bg2
 
-            tk.Label(self.historial_table_frame, text=Id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=0, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.historial_table_frame, text=Nombre, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=1, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.historial_table_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4, wraplength=200, justify="left").grid(row=row, column=2, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.historial_table_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=3, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.historial_table_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=4, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.historial_table_frame, text=UsuarioId, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=5, sticky="nsew", padx=2, pady=1)
+            tk.Label(parent_frame, text=Id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=6).grid(row=row, column=0, sticky="nsew", padx=1, pady=1)
+            tk.Label(parent_frame, text=Nombre, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=6).grid(row=row, column=1, sticky="nsew", padx=1, pady=1)
+            tk.Label(parent_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=6, wraplength=220, justify="left").grid(row=row, column=2, sticky="nsew", padx=1, pady=1)
+            tk.Label(parent_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=6).grid(row=row, column=3, sticky="nsew", padx=1, pady=1)
+            tk.Label(parent_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=6).grid(row=row, column=4, sticky="nsew", padx=1, pady=1)
+            tk.Label(parent_frame, text=UsuarioId, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=6).grid(row=row, column=5, sticky="nsew", padx=1, pady=1)
             archivo_text = "Sí" if Archivo else "No"
-            tk.Label(self.historial_table_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=6, sticky="nsew", padx=2, pady=1)
+            tk.Label(parent_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=6).grid(row=row, column=6, sticky="nsew", padx=1, pady=1)
 
             # Botón para descargar archivo
             download_btn = tk.Button(
-                self.historial_table_frame,
+                parent_frame,
                 image=self.download_icon,
                 bg=bg,
                 bd=0,
@@ -540,11 +622,11 @@ class MainInterfaceAdmin(tk.Tk):
                 cursor="hand2",
                 command=lambda archivo=Archivo, nombre=Nombre: self.descargar_archivo_historial(archivo, nombre)
             )
-            download_btn.grid(row=row, column=7, padx=4, pady=1)
+            download_btn.grid(row=row, column=7, padx=2, pady=1, sticky="nsew")
 
             # Botón para eliminar registro
             delete_btn = tk.Button(
-                self.historial_table_frame,
+                parent_frame,
                 image=self.trash_icon,
                 bg=bg,
                 bd=0,
@@ -552,11 +634,11 @@ class MainInterfaceAdmin(tk.Tk):
                 cursor="hand2",
                 command=lambda id_hist=Id: self.delete_historial_record(id_hist)
             )
-            delete_btn.grid(row=row, column=8, padx=4, pady=1)
+            delete_btn.grid(row=row, column=8, padx=2, pady=1, sticky="nsew")
 
         # Hacer columnas expandibles
         for col in range(len(headers)):
-            self.historial_table_frame.grid_columnconfigure(col, weight=1)
+            parent_frame.grid_columnconfigure(col, weight=1)
 
     def descargar_archivo_historial(self, archivo_bin, nombre):
         if not archivo_bin:
