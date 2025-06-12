@@ -1,11 +1,11 @@
 import pyodbc
 
 def get_connection():
-    server = 'LATITUDE-3540\\SQLEXPRESS'      # Cambia por el nombre o IP de tu servidor SQL
-    database = 'FCQ'  # Cambia por el nombre de tu base de datos
-    username = 'root'     # Cambia por tu usuario
-    password = 'Fime2025'  # Cambia por tu contraseña
-    driver = 'ODBC Driver 17 for SQL Server'  # Asegúrate de tener este driver instalado
+    server = 'LATITUDE-3540\\SQLEXPRESS'      
+    database = 'FCQ'  
+    username = 'root'    
+    password = 'Fime2025'  
+    driver = 'ODBC Driver 17 for SQL Server'  
 
     conn_str = (
         f'DRIVER={{{driver}}};'
