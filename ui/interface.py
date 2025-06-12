@@ -3,6 +3,7 @@ from tkinter import filedialog, messagebox
 from PIL import Image, ImageDraw, ImageTk
 import os
 from core.auth import agregar_historial  # Debes tener esta función en tu backend
+import datetime
 
 class MainInterface(tk.Tk):
     def __init__(self, username=None, rol="usuario"):
@@ -103,8 +104,6 @@ class MainInterface(tk.Tk):
         self.menu_frame = tk.Toplevel(self)
         self.menu_frame.overrideredirect(True)
         self.menu_frame.attributes('-topmost', True)
-        # Elimina la línea de transparencia:
-        # self.menu_frame.attributes('-alpha', 0.93)
         self.menu_frame.configure(bg="#0B5394")  # Mismo color que el header
 
         self.update_side_menu_geometry()
@@ -119,7 +118,8 @@ class MainInterface(tk.Tk):
         )
         menu_label.pack(pady=(25, 15), anchor="w", padx=30)
 
-        sections = ["Inicio", "Cálculos", "Exportar Excel", "Historial"]
+        # Elimina "Inicio" del menú lateral
+        sections = ["Cálculos", "Exportar Excel", "Historial"]
         self.menu_buttons = []
         for section in sections:
             btn = tk.Button(
@@ -295,9 +295,14 @@ class MainInterface(tk.Tk):
             label.pack(pady=20)
 
     def show_exportar_excel(self):
+        # Limpiar el frame de contenido
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+
         frame = tk.Frame(self.content_frame, bg="white")
         frame.pack(expand=True, fill="both", padx=30, pady=20)
 
+        # Información
         info = tk.Label(
             frame,
             text="Desde aquí puedes exportar o importar la base de datos a Excel.\n\n"
@@ -323,43 +328,75 @@ class MainInterface(tk.Tk):
             bd=0,
             activebackground="#e6f0fa",
             cursor="hand2",
-            command=self.add_historial_popup
+            command=lambda: self.show_exportar_excel_form()
         )
         plus_btn.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
 
-    def add_historial_popup(self):
-        popup = tk.Toplevel(self)
-        popup.title("Agregar nuevo registro al historial")
-        popup.geometry("400x500")
-        popup.configure(bg="white")
-        popup.resizable(False, False)
-        popup.grab_set()
+    def show_exportar_excel_form(self):
+        # Limpiar el frame de contenido
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
 
-        tk.Label(popup, text="Nombre:", font=("Segoe UI", 11), bg="white").pack(pady=(20, 5))
-        nombre_entry = tk.Entry(popup, font=("Segoe UI", 11), width=30)
-        nombre_entry.pack()
+        frame = tk.Frame(self.content_frame, bg="white")
+        frame.pack(expand=True, fill="both", padx=30, pady=20)
 
-        tk.Label(popup, text="Descripción:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
-        descripcion_entry = tk.Text(popup, font=("Segoe UI", 11), width=30, height=4)
-        descripcion_entry.pack()
+        # --- Fase 1 ---
+        fase1_label = tk.Label(frame, text="Fase 1", font=("Segoe UI", 15, "bold"), fg="#0B5394", bg="white")
+        fase1_label.pack(anchor="w", pady=(10, 5))
 
-        tk.Label(popup, text="Fecha (YYYY-MM-DD):", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
-        fecha_entry = tk.Entry(popup, font=("Segoe UI", 11), width=30)
-        fecha_entry.pack()
+        fase1_frame = tk.Frame(frame, bg="white")
+        fase1_frame.pack(fill="x", padx=10, pady=(0, 20))
 
-        tk.Label(popup, text="Hora (HH:MM:SS):", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
-        hora_entry = tk.Entry(popup, font=("Segoe UI", 11), width=30)
-        hora_entry.pack()
+        tk.Label(fase1_frame, text="Nombre:", font=("Segoe UI", 11), bg="white").grid(row=0, column=0, sticky="e", pady=5, padx=5)
+        nombre_entry = tk.Entry(fase1_frame, font=("Segoe UI", 11), width=30)
+        nombre_entry.grid(row=0, column=1, sticky="w", pady=5, padx=5)
 
-        tk.Label(popup, text="Archivo adjunto:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        tk.Label(fase1_frame, text="Descripción:", font=("Segoe UI", 11), bg="white").grid(row=1, column=0, sticky="ne", pady=5, padx=5)
+        descripcion_entry = tk.Text(fase1_frame, font=("Segoe UI", 11), width=30, height=4)
+        descripcion_entry.grid(row=1, column=1, sticky="w", pady=5, padx=5)
+
+        fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
+        hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
+
+        tk.Label(fase1_frame, text="Fecha (YYYY-MM-DD):", font=("Segoe UI", 11), bg="white").grid(row=2, column=0, sticky="e", pady=5, padx=5)
+        fecha_entry = tk.Entry(fase1_frame, font=("Segoe UI", 11), width=30)
+        fecha_entry.grid(row=2, column=1, sticky="w", pady=5, padx=5)
+        fecha_entry.insert(0, fecha_actual)
+        fecha_entry.config(state="readonly")
+
+        tk.Label(fase1_frame, text="Hora (HH:MM:SS):", font=("Segoe UI", 11), bg="white").grid(row=3, column=0, sticky="e", pady=5, padx=5)
+        hora_entry = tk.Entry(fase1_frame, font=("Segoe UI", 11), width=30)
+        hora_entry.grid(row=3, column=1, sticky="w", pady=5, padx=5)
+        hora_entry.insert(0, hora_actual)
+        hora_entry.config(state="readonly")
+
+        tk.Label(fase1_frame, text="Archivo adjunto:", font=("Segoe UI", 11), bg="white").grid(row=4, column=0, sticky="e", pady=5, padx=5)
         archivo_var = tk.StringVar()
-        archivo_entry = tk.Entry(popup, font=("Segoe UI", 11), width=24, textvariable=archivo_var, state="readonly")
-        archivo_entry.pack(padx=(20, 0))
+        archivo_entry = tk.Entry(fase1_frame, font=("Segoe UI", 11), width=24, textvariable=archivo_var, state="readonly")
+        archivo_entry.grid(row=4, column=1, sticky="w", pady=5, padx=5)
         def seleccionar_archivo():
             archivo = filedialog.askopenfilename(title="Seleccionar archivo")
             if archivo:
                 archivo_var.set(archivo)
-        tk.Button(popup, text="Seleccionar", command=seleccionar_archivo, font=("Segoe UI", 10)).pack(pady=(0, 10), padx=10)
+        tk.Button(fase1_frame, text="Seleccionar", command=seleccionar_archivo, font=("Segoe UI", 10)).grid(row=4, column=2, padx=5, pady=5)
+
+        # --- Fase 2 ---
+        fase2_label = tk.Label(frame, text="Fase 2", font=("Segoe UI", 15, "bold"), fg="#0B5394", bg="white")
+        fase2_label.pack(anchor="w", pady=(20, 5))
+        fase2_frame = tk.Frame(frame, bg="white", height=60)
+        fase2_frame.pack(fill="x", padx=10, pady=(0, 20))
+        # (En blanco por ahora)
+
+        # --- Fase 3 ---
+        fase3_label = tk.Label(frame, text="Fase 3", font=("Segoe UI", 15, "bold"), fg="#0B5394", bg="white")
+        fase3_label.pack(anchor="w", pady=(20, 5))
+        fase3_frame = tk.Frame(frame, bg="white", height=60)
+        fase3_frame.pack(fill="x", padx=10, pady=(0, 20))
+        # (En blanco por ahora)
+
+        # --- Botones Guardar y Cancelar en la esquina inferior derecha ---
+        btn_frame = tk.Frame(frame, bg="white")
+        btn_frame.pack(side="bottom", anchor="se", pady=10, padx=10, fill="x")
 
         def guardar():
             nombre = nombre_entry.get()
@@ -369,27 +406,28 @@ class MainInterface(tk.Tk):
             archivo_path = archivo_var.get()
             usuario_id = self.get_usuario_id()  # Debes tener este método para obtener el id del usuario actual
 
-            if not (nombre and fecha and hora and archivo_path):
-                messagebox.showerror("Error", "Todos los campos excepto descripción son obligatorios.", parent=popup)
+            if not (nombre and fecha and hora):
+                messagebox.showerror("Error", "Nombre, fecha y hora son obligatorios.", parent=frame)
                 return
 
-            # Leer archivo como binario
-            try:
-                with open(archivo_path, "rb") as f:
-                    archivo_bin = f.read()
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo leer el archivo: {e}", parent=popup)
-                return
+            archivo_bin = b""
+            if archivo_path:
+                try:
+                    with open(archivo_path, "rb") as f:
+                        archivo_bin = f.read()
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo leer el archivo: {e}", parent=frame)
+                    return
 
             try:
                 agregar_historial(nombre, descripcion, fecha, hora, usuario_id, archivo_bin)
-                messagebox.showinfo("Éxito", "Registro agregado correctamente.", parent=popup)
-                popup.destroy()
+                messagebox.showinfo("Éxito", "Registro agregado correctamente.", parent=frame)
+                self.show_exportar_excel()  # Regresar a la vista original
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo agregar el registro: {e}", parent=popup)
+                messagebox.showerror("Error", f"No se pudo agregar el registro: {e}", parent=frame)
 
         tk.Button(
-            popup,
+            btn_frame,
             text="Guardar",
             font=("Segoe UI", 11, "bold"),
             bg="#0B5394",
@@ -398,7 +436,19 @@ class MainInterface(tk.Tk):
             activeforeground="white",
             relief="flat",
             command=guardar
-        ).pack(fill="x", padx=40, pady=20, ipady=8)
+        ).pack(side="right", padx=10, ipadx=10, ipady=6)
+
+        tk.Button(
+            btn_frame,
+            text="Cancelar",
+            font=("Segoe UI", 11, "bold"),
+            bg="#bdbdbd",
+            fg="white",
+            activebackground="#888",
+            activeforeground="white",
+            relief="flat",
+            command=self.show_exportar_excel
+        ).pack(side="right", padx=10, ipadx=10, ipady=6)
 
     def show_user_historial_table(self):
         # Si ya existe el frame de la tabla, destrúyelo para evitar duplicados
@@ -408,8 +458,8 @@ class MainInterface(tk.Tk):
         self.historial_table_frame = tk.Frame(self.content_frame, bg="white")
         self.historial_table_frame.pack(expand=True, fill="both", padx=30, pady=20)
 
-        # Encabezados
-        headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "UsuarioId", "Archivo", "Descargar"]
+        # Encabezados (sin UsuarioId)
+        headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Archivo", "Descargar", "Eliminar"]
         header_bg = "#0B5394"
         header_fg = "white"
         for col, h in enumerate(headers):
@@ -425,9 +475,16 @@ class MainInterface(tk.Tk):
         download_icon = ImageTk.PhotoImage(download_img)
         self.download_icon = download_icon  # Mantener referencia
 
+        # Cargar imagen de eliminar (basura)
+        trash_path = os.path.join(os.path.dirname(__file__), "..", "img", "basura.png")
+        trash_path = os.path.abspath(trash_path)
+        trash_img = Image.open(trash_path).resize((20, 20), Image.LANCZOS)
+        trash_icon = ImageTk.PhotoImage(trash_img)
+        self.trash_icon = trash_icon  # Mantener referencia
+
         # Obtener historial SOLO del usuario actual
-        from core.auth import obtener_historial_usuario  # Debes tener esta función en tu backend
-        usuario_id = self.get_usuario_id()  # Debes implementar este método para obtener el id del usuario actual
+        from core.auth import obtener_historial_usuario, eliminar_historial  # Debes tener estas funciones en tu backend
+        usuario_id = self.get_usuario_id()
         historial = obtener_historial_usuario(usuario_id)  # Debe regresar una lista de tuplas
 
         row_bg1 = "#e6f0fa"
@@ -441,9 +498,8 @@ class MainInterface(tk.Tk):
             tk.Label(self.historial_table_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4, wraplength=200, justify="left").grid(row=row, column=2, sticky="nsew", padx=2, pady=1)
             tk.Label(self.historial_table_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=3, sticky="nsew", padx=2, pady=1)
             tk.Label(self.historial_table_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=4, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.historial_table_frame, text=UsuarioId, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=5, sticky="nsew", padx=2, pady=1)
             archivo_text = "Sí" if Archivo else "No"
-            tk.Label(self.historial_table_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=6, sticky="nsew", padx=2, pady=1)
+            tk.Label(self.historial_table_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=5, sticky="nsew", padx=2, pady=1)
 
             # Botón para descargar archivo
             download_btn = tk.Button(
@@ -455,7 +511,19 @@ class MainInterface(tk.Tk):
                 cursor="hand2",
                 command=lambda archivo=Archivo, nombre=Nombre: self.descargar_archivo_historial(archivo, nombre)
             )
-            download_btn.grid(row=row, column=7, padx=4, pady=1)
+            download_btn.grid(row=row, column=6, padx=4, pady=1)
+
+            # Botón para eliminar registro
+            delete_btn = tk.Button(
+                self.historial_table_frame,
+                image=self.trash_icon,
+                bg=bg,
+                bd=0,
+                activebackground="#f7bdbd",
+                cursor="hand2",
+                command=lambda id_hist=Id: self.delete_user_historial_record(id_hist)
+            )
+            delete_btn.grid(row=row, column=7, padx=4, pady=1)
 
         # Hacer columnas expandibles
         for col in range(len(headers)):
@@ -487,3 +555,13 @@ class MainInterface(tk.Tk):
         # Por ejemplo, si tienes el username, consulta la base de datos para obtener el id.
         from core.auth import obtener_id_por_username
         return obtener_id_por_username(self.username)
+
+    def delete_user_historial_record(self, id_hist):
+        from core.auth import eliminar_historial  # Debes tener esta función en tu backend
+        if messagebox.askyesno("Eliminar registro", "¿Estás seguro de que deseas eliminar este registro del historial?"):
+            try:
+                eliminar_historial(id_hist)
+                messagebox.showinfo("Éxito", "Registro eliminado correctamente.")
+                self.show_user_historial_table()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo eliminar el registro: {e}")

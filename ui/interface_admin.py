@@ -7,7 +7,7 @@ import zipfile
 import io
 import datetime
 
-from core.auth import obtener_usuarios, actualizar_usuario, eliminar_usuario, obtener_historial, agregar_historial  # Agrega obtener_historial y agregar_historial a tu backend
+from core.auth import obtener_usuarios, actualizar_usuario, eliminar_usuario, obtener_historial, agregar_historial, crear_usuario  # Agrega obtener_historial y agregar_historial a tu backend
 
 class MainInterfaceAdmin(tk.Tk):
     def __init__(self, username=None, rol="admin"):
@@ -267,11 +267,18 @@ class MainInterfaceAdmin(tk.Tk):
             )
             welcome.pack(pady=(0, 10))
 
+            # NUEVO TEXTO INFORMATIVO
             info = tk.Label(
                 frame,
                 text=(
-                    "Panel exclusivo para administración de la base de datos.\n"
-                    "Utiliza las opciones del menú lateral para exportar o importar la base de datos."
+                    "Panel de administración de la base de datos FoodLab.\n\n"
+                    "Desde este panel puedes:\n"
+                    "• Exportar e importar todos los registros y archivos adjuntos de la base de datos en formato ZIP.\n"
+                    "• Consultar, editar, eliminar y agregar nuevos usuarios fácilmente (usa el botón '+').\n"
+                    "• Cambiar el rol de usuario entre 'usuario' y 'admin'.\n"
+                    "• Consultar, descargar o eliminar registros del historial.\n"
+                    "• Eliminar usuarios junto con su historial asociado.\n\n"
+                    "Utiliza las opciones del menú lateral para acceder a cada funcionalidad."
                 ),
                 font=("Segoe UI", 13),
                 fg="#333333",
@@ -302,6 +309,24 @@ class MainInterfaceAdmin(tk.Tk):
         self.users_table_frame = tk.Frame(self.content_frame, bg="white")
         self.users_table_frame.pack(expand=True, fill="both", padx=30, pady=20)
 
+        # --- Botón agregar usuario (+) ---
+        plus_path = os.path.join(os.path.dirname(__file__), "..", "img", "+.png")
+        plus_path = os.path.abspath(plus_path)
+        plus_img = Image.open(plus_path).resize((24, 24), Image.LANCZOS)
+        plus_icon = ImageTk.PhotoImage(plus_img)
+        self.plus_icon = plus_icon  # Mantener referencia
+
+        add_btn = tk.Button(
+            self.users_table_frame,
+            image=self.plus_icon,
+            bg="white",
+            bd=0,
+            activebackground="#b3d1f7",
+            cursor="hand2",
+            command=self.add_user_popup
+        )
+        add_btn.grid(row=0, column=0, sticky="w", padx=(0, 8), pady=(0, 8))
+
         # Encabezados con diseño azul
         headers = ["ID", "Usuario", "Email", "Rol", "Editar", "Eliminar"]
         header_bg = "#0B5394"
@@ -310,7 +335,7 @@ class MainInterfaceAdmin(tk.Tk):
             tk.Label(
                 self.users_table_frame, text=h, font=("Segoe UI", 11, "bold"),
                 bg=header_bg, fg=header_fg, padx=10, pady=8, borderwidth=0, relief="flat"
-            ).grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 2, 2), pady=(0, 2))
+            ).grid(row=1, column=col, sticky="nsew", padx=(0 if col == 0 else 2, 2), pady=(0, 2))
 
         # Cargar imagen de lápiz y basura
         lapiz_path = os.path.join(os.path.dirname(__file__), "..", "img", "lapiz.png")
@@ -330,7 +355,7 @@ class MainInterfaceAdmin(tk.Tk):
 
         row_bg1 = "#e6f0fa"
         row_bg2 = "#f7fbff"
-        for row, user in enumerate(usuarios, start=1):
+        for row, user in enumerate(usuarios, start=2):
             user_id, username, email, rol = user
             bg = row_bg1 if row % 2 == 1 else row_bg2
 
@@ -445,11 +470,13 @@ class MainInterfaceAdmin(tk.Tk):
                     break
 
     def delete_user(self, user_id):
-        if messagebox.askyesno("Eliminar usuario", "¿Estás seguro de que deseas eliminar este usuario?"):
+        if messagebox.askyesno("Eliminar usuario", "¿Estás seguro de que deseas eliminar este usuario? Se eliminará también su historial."):
             try:
-                eliminar_usuario(user_id)
+                from core.auth import eliminar_historial_por_usuario  # Debes crear esta función en tu backend
+                eliminar_historial_por_usuario(user_id)  # Elimina historial primero
+                eliminar_usuario(user_id)                # Luego elimina el usuario
                 messagebox.showinfo("Éxito", "Usuario eliminado correctamente.")
-                self.show_users_table()  # Refresca la tabla
+                self.show_users_table()
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar el usuario: {e}")
 
@@ -462,7 +489,7 @@ class MainInterfaceAdmin(tk.Tk):
         self.historial_table_frame.pack(expand=True, fill="both", padx=30, pady=20)
 
         # Encabezados
-        headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "UsuarioId", "Archivo", "Descargar"]
+        headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "UsuarioId", "Archivo", "Descargar", "Eliminar"]
         header_bg = "#0B5394"
         header_fg = "white"
         for col, h in enumerate(headers):
@@ -477,6 +504,13 @@ class MainInterfaceAdmin(tk.Tk):
         download_img = Image.open(download_path).resize((20, 20), Image.LANCZOS)
         download_icon = ImageTk.PhotoImage(download_img)
         self.download_icon = download_icon  # Mantener referencia
+
+        # Cargar imagen de eliminar (basura)
+        trash_path = os.path.join(os.path.dirname(__file__), "..", "img", "basura.png")
+        trash_path = os.path.abspath(trash_path)
+        trash_img = Image.open(trash_path).resize((20, 20), Image.LANCZOS)
+        trash_icon = ImageTk.PhotoImage(trash_img)
+        self.trash_icon = trash_icon  # Mantener referencia
 
         # Obtener historial de la base de datos
         historial = obtener_historial()  # Debe regresar una lista de tuplas: (Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo)
@@ -508,6 +542,18 @@ class MainInterfaceAdmin(tk.Tk):
             )
             download_btn.grid(row=row, column=7, padx=4, pady=1)
 
+            # Botón para eliminar registro
+            delete_btn = tk.Button(
+                self.historial_table_frame,
+                image=self.trash_icon,
+                bg=bg,
+                bd=0,
+                activebackground="#f7bdbd",
+                cursor="hand2",
+                command=lambda id_hist=Id: self.delete_historial_record(id_hist)
+            )
+            delete_btn.grid(row=row, column=8, padx=4, pady=1)
+
         # Hacer columnas expandibles
         for col in range(len(headers)):
             self.historial_table_frame.grid_columnconfigure(col, weight=1)
@@ -537,28 +583,44 @@ class MainInterfaceAdmin(tk.Tk):
         frame = tk.Frame(self.content_frame, bg="white")
         frame.pack(expand=True, fill="both", padx=30, pady=20)
 
-        # Fondo decorativo (opcional, puedes quitarlo si no te gusta)
-        decor = tk.Frame(frame, bg="#e6f0fa", bd=2, relief="ridge")
-        decor.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.7, relheight=0.7)
+        # Imagen decorativa de Bruni centrada arriba
+        bruni_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
+        bruni_path = os.path.abspath(bruni_path)
+        bruni_img = Image.open(bruni_path).resize((120, 120), Image.LANCZOS)
+        mask = Image.new('L', (120, 120), 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0, 120, 120), fill=255)
+        bruni_img.putalpha(mask)
+        bruni_photo = ImageTk.PhotoImage(bruni_img)
+        bruni_label = tk.Label(frame, image=bruni_photo, bg="white")
+        bruni_label.image = bruni_photo  # Mantener referencia
+        bruni_label.pack(pady=(30, 10))
 
-        # Texto informativo centrado y estilizado
+        # Título y texto informativo centrado y estilizado
+        title = tk.Label(
+            frame,
+            text="Exportar / Importar Base de Datos",
+            font=("Segoe UI", 20, "bold"),
+            fg="#0B5394",
+            bg="white"
+        )
+        title.pack(pady=(0, 10))
+
         info = tk.Label(
-            decor,
+            frame,
             text=(
-                "Exportar / Importar Base de Datos\n\n"
                 "Puedes exportar todos los registros y archivos adjuntos de la base de datos\n"
                 "en un solo archivo ZIP. También puedes importar un ZIP previamente exportado\n"
                 "para restaurar o migrar los registros y archivos.\n\n"
-                "Haz clic en el botón 'Exportar' para descargar la base de datos completa.\n"
-                "Haz clic en el botón 'Importar' para cargar registros desde un archivo ZIP."
+                "Haz clic en 'Exportar' para descargar la base de datos completa.\n"
+                "Haz clic en 'Importar' para cargar registros desde un archivo ZIP."
             ),
-            font=("Segoe UI", 14, "bold"),
-            fg="#0B5394",
-            bg="#e6f0fa",
-            justify="center",
-            wraplength=500
+            font=("Segoe UI", 13),
+            fg="#333333",
+            bg="white",
+            justify="center"
         )
-        info.place(relx=0.5, rely=0.3, anchor="center")
+        info.pack(pady=(0, 30))
 
         # Cargar imágenes de los botones
         upload_path = os.path.join(os.path.dirname(__file__), "..", "img", "upload.png")
@@ -574,8 +636,8 @@ class MainInterfaceAdmin(tk.Tk):
         self.download_icon = download_icon  # Mantener referencia
 
         # Botones centrados y estilizados
-        btn_frame = tk.Frame(decor, bg="#e6f0fa")
-        btn_frame.place(relx=0.5, rely=0.7, anchor="center")
+        btn_frame = tk.Frame(frame, bg="white")
+        btn_frame.pack(pady=10)
 
         export_btn = tk.Button(
             btn_frame,
@@ -702,3 +764,76 @@ class MainInterfaceAdmin(tk.Tk):
             self.show_historial_table()
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo importar: {e}")
+
+    def delete_historial_record(self, id_hist):
+        if messagebox.askyesno("Eliminar registro", "¿Estás seguro de que deseas eliminar este registro del historial?"):
+            try:
+                from core.auth import eliminar_historial  # Debes tener esta función en tu backend
+                eliminar_historial(id_hist)
+                messagebox.showinfo("Éxito", "Registro eliminado correctamente.")
+                self.show_historial_table()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo eliminar el registro: {e}")
+
+    def add_user_popup(self):
+        popup = tk.Toplevel(self)
+        popup.title("Agregar nuevo usuario")
+        popup.geometry("350x320")
+        popup.configure(bg="white")
+        popup.resizable(False, False)
+        popup.grab_set()
+
+        tk.Label(popup, text="Usuario:", font=("Segoe UI", 11), bg="white").pack(pady=(20, 5))
+        username_entry = tk.Entry(popup, font=("Segoe UI", 11), width=25)
+        username_entry.pack()
+
+        tk.Label(popup, text="Email:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        email_entry = tk.Entry(popup, font=("Segoe UI", 11), width=25)
+        email_entry.pack()
+
+        tk.Label(popup, text="Contraseña:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        password_entry = tk.Entry(popup, font=("Segoe UI", 11), width=25, show="*")
+        password_entry.pack()
+
+        tk.Label(popup, text="Rol:", font=("Segoe UI", 11), bg="white").pack(pady=(10, 5))
+        rol_var = tk.StringVar(value="usuario")
+        rol_frame = tk.Frame(popup, bg="white")
+        rol_frame.pack()
+        tk.Radiobutton(rol_frame, text="usuario", variable=rol_var, value="usuario", font=("Segoe UI", 10), bg="white").pack(side="left", padx=10)
+        tk.Radiobutton(rol_frame, text="admin", variable=rol_var, value="admin", font=("Segoe UI", 10), bg="white").pack(side="left", padx=10)
+
+        def save_new_user():
+            username = username_entry.get().strip()
+            email = email_entry.get().strip()
+            password = password_entry.get().strip()
+            rol = rol_var.get()
+            if not username or not password:
+                messagebox.showerror("Error", "El usuario y la contraseña son obligatorios.", parent=popup)
+                return
+            try:
+                crear_usuario(username, password, email)
+                # Si quieres permitir crear admins desde aquí, agrega un parámetro de rol a tu función crear_usuario
+                if rol == "admin":
+                    from core.auth import actualizar_usuario
+                    # Busca el id del usuario recién creado
+                    from core.auth import obtener_id_por_username
+                    user_id = obtener_id_por_username(username)
+                    if user_id:
+                        actualizar_usuario(user_id, username, email, rol)
+                messagebox.showinfo("Éxito", "Usuario creado correctamente.", parent=popup)
+                popup.destroy()
+                self.show_users_table()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo crear el usuario: {e}", parent=popup)
+
+        tk.Button(
+            popup,
+            text="Crear usuario",
+            font=("Segoe UI", 11, "bold"),
+            bg="#0B5394",
+            fg="white",
+            activebackground="#073763",
+            activeforeground="white",
+            relief="flat",
+            command=save_new_user
+        ).pack(fill="x", padx=40, pady=20, ipady=8)

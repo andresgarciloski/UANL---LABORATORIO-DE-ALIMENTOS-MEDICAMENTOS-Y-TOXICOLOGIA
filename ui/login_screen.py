@@ -17,7 +17,7 @@ class LoginWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("UANL FoodLab")
-        self.geometry("420x480")  # Tamaño más compacto y estético
+        self.geometry("540x540")  # Tamaño más grande y cómodo
         self.configure(bg="white")
         self.resizable(False, False)
 
