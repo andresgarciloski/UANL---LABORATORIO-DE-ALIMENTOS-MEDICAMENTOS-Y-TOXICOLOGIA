@@ -1,0 +1,1 @@
+30.6.2025 - Agregar Filtro por Descripción en la pestaña de registro, cambiar "Nombre" por "# de muestra" en el apartado de registro. Y agregar filtro para exportar solo los registros que quiera el usuario. 
