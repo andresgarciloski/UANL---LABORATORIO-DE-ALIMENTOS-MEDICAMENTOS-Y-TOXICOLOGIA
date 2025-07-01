@@ -79,13 +79,31 @@ def obtener_historial_usuario(usuario_id):
     conn.close()
     return [(row.Id, row.Nombre, row.Descripcion, row.Fecha, row.Hora, row.UsuarioId, row.Archivo) for row in rows]
 
+def obtener_usuario_por_username(username):
+    """Obtiene los datos del usuario por su nombre de usuario"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT Id, Username, Email, Rol FROM Usuarios WHERE Username = ?", (username,))
+        usuario = cursor.fetchone()
+        conn.close()
+        return usuario
+    except Exception as e:
+        print(f"Error al obtener usuario por username: {e}")
+        return None
+
 def obtener_id_por_username(username):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT Id FROM Usuarios WHERE Username=?", (username,))
-    row = cursor.fetchone()
-    conn.close()
-    return row.Id if row else None
+    """Obtiene solo el ID del usuario por su nombre de usuario"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT Id FROM Usuarios WHERE Username = ?", (username,))
+        resultado = cursor.fetchone()
+        conn.close()
+        return resultado[0] if resultado else None
+    except Exception as e:
+        print(f"Error al obtener ID por username: {e}")
+        return None
 
 def agregar_historial(nombre, descripcion, fecha, hora, usuario_id, archivo_bin):
     conn = get_connection()
