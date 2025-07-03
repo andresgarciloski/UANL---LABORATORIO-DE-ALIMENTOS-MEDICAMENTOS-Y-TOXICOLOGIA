@@ -20,13 +20,14 @@ def verificar_login(username, password):
             return True, rol
     return False, None
 
-def crear_usuario(username, password, email):
+def crear_usuario(username, password, email, rol="usuario"):
+    """Crea un nuevo usuario con rol especificado"""
     conn = get_connection()
     cursor = conn.cursor()
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     cursor.execute(
         "INSERT INTO Usuarios (Username, PasswordHash, Email, Rol) VALUES (?, ?, ?, ?)",
-        (username, hashed_password.decode('utf-8'), email, "usuario")
+        (username, hashed_password.decode('utf-8'), email, rol)
     )
     conn.commit()
     conn.close()
@@ -39,20 +40,24 @@ def obtener_usuarios():
     conn.close()
     return [(row.Id, row.Username, row.Email, row.Rol) for row in usuarios]
 
-def actualizar_usuario(user_id, username, email, rol, password=None):
+def actualizar_usuario(user_id, username, email, rol, nueva_password=None):
+    """Actualiza un usuario, opcionalmente con nueva contraseña"""
     conn = get_connection()
     cursor = conn.cursor()
-    if password:
-        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    
+    if nueva_password:
+        import bcrypt
+        hashed_password = bcrypt.hashpw(nueva_password.encode('utf-8'), bcrypt.gensalt())
         cursor.execute(
-            "UPDATE Usuarios SET Username=?, Email=?, Rol=?, PasswordHash=? WHERE Id=?",
-            (username, email, rol, hashed.decode('utf-8'), user_id)
+            "UPDATE Usuarios SET Username = ?, Email = ?, Rol = ?, PasswordHash = ? WHERE Id = ?",
+            (username, email, rol, hashed_password.decode('utf-8'), user_id)
         )
     else:
         cursor.execute(
-            "UPDATE Usuarios SET Username=?, Email=?, Rol=? WHERE Id=?",
+            "UPDATE Usuarios SET Username = ?, Email = ?, Rol = ? WHERE Id = ?",
             (username, email, rol, user_id)
         )
+    
     conn.commit()
     conn.close()
 
@@ -123,8 +128,41 @@ def eliminar_historial(id_hist):
     conn.close()
 
 def eliminar_historial_por_usuario(user_id):
+    """Elimina todos los registros del historial de un usuario específico"""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM Historial WHERE UsuarioId = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+def eliminar_registro_historial(record_id):
+    """Elimina un registro específico del historial"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Historial WHERE Id = ?", (record_id,))
+    conn.commit()
+    conn.close()
+
+def importar_registro(nombre, descripcion, fecha, hora, usuario_id, archivo_bin):
+    """Importa un registro al historial"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO Historial (Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo) VALUES (?, ?, ?, ?, ?, ?)",
+        (nombre, descripcion, fecha, hora, usuario_id, archivo_bin)
+    )
+    conn.commit()
+    conn.close()
+
+def crear_usuario(username, email, password, rol="usuario"):
+    """Crea un nuevo usuario con rol especificado"""
+    import bcrypt
+    conn = get_connection()
+    cursor = conn.cursor()
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    cursor.execute(
+        "INSERT INTO Usuarios (Username, Email, PasswordHash, Rol) VALUES (?, ?, ?, ?)",
+        (username, email, hashed_password.decode('utf-8'), rol)
+    )
     conn.commit()
     conn.close()

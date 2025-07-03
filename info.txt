@@ -1,0 +1,497 @@
+ 
+
+ 
+
+La entrada al proceso son los resultados obtenidos en los análisis reportados como % o bien en el caso del sodio, como miligramos por cada 100g de producto sólido o 100mL de producto líquido (mg/100g o mg/100mL). 
+
+ 
+
+Los resultados necesarios para el cálculo de la tabla nutrimental mexicana son los siguientes: 
+
+ 
+
+Humedad (%, que es igual a g de agua por cada 100g ó 100mL de alimento) 
+
+Cenizas (%, que es igual a g de ceniza por cada 100g ó 100mL de alimento) 
+
+Proteína (%, que es igual a g de proteína por cada 100g ó 100mL de alimento) 
+
+Grasa total (%, que es igual a g de grasa por cada 100g ó 100mL de alimento) 
+
+Carbohidratos totales (%, que es igual a g de carbohidratos por cada 100g ó 100mL de alimento) 
+
+Fibra dietética total (%, que es igual a g de fibra dietética por cada 100g ó 100mL de alimento) 
+
+Azúcares totales (% que es igual a g por cada 100g) 
+
+SODIO (mg, miligramos por cada 100 g ó mL) 
+
+Ácidos grasos saturados o grasa saturada (% que es igual a g por cada 100g de grasa del alimento) 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+En cuanto a los parámetros a declarar en la tabla nutrimental, se calculan de la siguiente manera a partir de los resultados obtenidos en los análisis. 
+
+ 
+
+Parámetro 
+
+¿Cómo se calcula? 
+
+Proteínas 
+
+Para 100 g ó 100 mL 
+
+Sólo se redondea matemáticamente a número entero el valor obtenido como % en el análisis. 
+
+ 
+
+Para una cantidad diferente (porción) 
+
+Se obtiene por regla de 3 simple la cantidad de proteína en el tamaño de porción deseado si se conoce la cantidad en 100 gramos o mililitros (el valor obtenido como % en el análisis). 
+
+ 
+
+g proteína en “Y” gramos o mililitros de producto = ((valor obtenido como % en el análisis) x (g ó mL de porción deseados))/100 
+
+ 
+
+Ejemplo: El alimento tiene 8% de proteína (es lo mismo que decir que hay 8 gramos de proteína en 100 gramos de producto). ¿Cuántos gramos de proteína hay en una porción de 20 gramos de producto? 
+
+ 
+
+g de proteína en 20g de producto = ((8,0)x(20))/100= 1.6 gramos que se redondea a 2 gramos. 
+
+ 
+
+Grasas totales 
+
+Grasas saturadas 
+
+Grasas trans 
+
+ 
+
+Para obtener la cantidad de Grasas totales en 100 gramos o mililitros de producto, sólo se redondea matemáticamente a número entero el valor obtenido como % en el análisis. 
+
+ 
+
+Para obtener la cantidad de grasa saturada en 100 gramos o 100 mililitros de producto, se requiere conocer el % de acidos grasos saturados obtenido como parte de los análisis de laboratorio y se aplica la siguiente fórmula: 
+
+Gramos de grasa saturada en 100g ó mL = (% grasa total)x(%acidos grasos saturados/100) 
+
+ 
+
+Ejemplo: Los análisis del producto reportan que tiene un 20% de grasa total y un 10% de ácidos grasos saturados ¿Cuántos gramos de grasa saturada hay en los 100g ó mL del producto? 
+
+ 
+
+Gramos de grasa saturada=(20)x(10/100)= 2.0 
+
+ 
+
+Lo anterior significa que en 100g ó mL de producto hay 20 gramos de grasa total y de eso, 2 gramos corresponden a grasa saturada. 
+
+ 
+
+Para una cantidad diferente (porción) 
+
+ 
+
+Se obtiene por regla de 3 simple la cantidad de grasa en el tamaño de porción deseado si se conoce previamente la cantidad en 100 gramos o mililitros (que es el valor obtenido como % en el análisis). 
+
+ 
+
+g grasa en “Y” gramos o mililitros de producto = ((valor obtenido como % en el análisis) x (g ó mL de porción deseados))/100 
+
+ 
+
+Ejemplo: El alimento tiene 16% de grasa (es lo mismo que decir que hay 16 gramos de grasa en 100 gramos de producto). ¿Cuántos gramos de grasa hay en una porción de 20 gramos de producto? 
+
+ 
+
+g de grasa en 20g de producto = ((16,0)x(20))/100= 3.2 gramos que se redondea a 2 gramos. 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Hidratos de carbono disponibles 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Azúcares 
+
+Azúcares añadidos 
+
+Los hidratos de carbono o carbohidratos totales no aparecen en la tabla nutrimental, pero deben calcularse para a partir de ese valor, calcular, el % de hidratos de carbono disponibles o carbohidratos disponibles que si aparecerá en la tabla nutrimental. 
+
+ 
+
+Para obtener los hidratos de carbono disponibles se requiere primero conocer el % de hidratos de carbono totales, y para conocer éste último se requiere conocer los valores de % de humedad, % cenizas, % proteína, % grasa y % fibra dietética en la muestra y se utiliza la siguiente fórmula: 
+
+ 
+
+Hidratos de carbono totales = 100 – (%humedad+%cenizas+%proteína+%lípidos o grasa) 
+
+ 
+
+Hidratos de carbono disponibles = hidratos de carbono totales-%fibra dietética 
+
+ 
+
+La cantidad de “azúcares” y “azúcares añadidos” sólo se redondea matemáticamente a número entero, el valor obtenido como % en el análisis. 
+
+ 
+
+Para una cantidad diferente (porción) 
+
+ 
+
+Se obtiene por regla de 3 simple la cantidad de hidratos de carbono disponibles en el tamaño de porción deseado si se conoce previamente la cantidad en 100 gramos o mililitros (que es el valor obtenido como % en el análisis). 
+
+ 
+
+g de hidratos de carbono disponibles en “Y” gramos o mililitros de producto = ((valor obtenido como % en el análisis) x (g ó mL de porción deseados))/100 
+
+ 
+
+Ejemplo: El alimento tiene 16% de hidratos de carbono disponibles (es lo mismo que decir que hay 16 gramos de hidratos de carbono disponibles en 100 gramos de producto). ¿Cuántos gramos de hidratos de carbono disponibles hay en una porción de 20 gramos de producto? 
+
+ 
+
+g de hidratos de carbono disponibles en 20g de producto = ((16,0)x(20))/100= 3.2 gramos que se redondea a 2 gramos. 
+
+ 
+
+Debe hacerse lo mismo para los “azucares” y “azúcares añadidos”. 
+
+ 
+
+ 
+
+Fibra dietética 
+
+ 
+
+Para 100 g ó 100 mL 
+
+Sólo se redondea matemáticamente a número entero el valor obtenido como % en el análisis. 
+
+ 
+
+Para una cantidad diferente (porción) 
+
+Se obtiene por regla de 3 simple la cantidad de fibra en el tamaño de porción deseado si se conoce la cantidad en 100 gramos o mililitros (el valor obtenido como % en el análisis). 
+
+ 
+
+gramos de fibra en “Y” gramos o mililitros de producto = ((valor obtenido como % en el análisis) x (g ó mL de porción deseados))/100 
+
+ 
+
+Ejemplo: El alimento tiene 8% de fibra (es lo mismo que decir que hay 8 gramos de proteína en 100 gramos de producto). ¿Cuántos gramos de fibra hay en una porción de 20 gramos de producto? 
+
+ 
+
+gramos de fibra en 20g de producto = ((8,0)x(20))/100= 1.6 gramos que se redondea a 2 gramos. 
+
+ 
+
+Sodio 
+
+El sodio se reporta como mg/100g o mg/100mL lo que significa “miligramos de sodio por 100g de producto” o “miligramos de sodio por 100mL de producto”. 
+
+ 
+
+Para 100 g ó 100 mL 
+
+Sólo se redondea el valor obtenido en el análisis, pero no matemáticamente, si no siguiendo los criterios de la NOM 051. 
+
+ 
+
+El valor se reporta como 0mg si hay menos de 5mg. 
+
+El valor se redondea en múltiplos de 5 si hay más de 5 y menos de 140mg de sodio. 
+
+El valor se redondea en múltiplos de 10 si hay más de 140mg de sodio. 
+
+ 
+
+Para una cantidad diferente (porción) 
+
+Se obtiene por regla de 3 simple la cantidad de sodio en el tamaño de porción deseado si se conoce la cantidad en 100 gramos o mililitros, es decir el valor obtenido como miligramos mg en el análisis. 
+
+ 
+
+mg de sodio en “Y” gramos o mililitros de producto = ((valor obtenido como mg en el análisis) x (g ó mL de porción deseados))/100 
+
+ 
+
+Ejemplo: El alimento tiene 300mg de sodio 
+
+¿Cuántos miligramos de sodio hay en una porción de 65 gramos de producto? 
+
+ 
+
+mg de sodio en 20g de producto = ((300,0)x(65))/100= 195 miligramos que se redondea a 200 miligramos. 
+
+ 
+
+Contenido energético 
+
+Para calcular como kilocalorías kcal  
+
+kcal = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 4) + (gramos de grasa* x 9) 
+
+ 
+
+Para calcular como kiloJoules kJ 
+
+kJ = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 17) + (gramos de grasa* x 37) 
+
+ 
+
+*Valores previamente redondeados a entero 
+
+Ambos resultados de kcal y kJ se reportan en la tabla nutrimental también como número entero. 
+
+ 
+
+Para una cantidad diferente (porción) 
+
+En este caso las kilocalorías y kiloJoules deben calcularse nuevamente a partir de los valores de proteína, carbohidratos disponibles y grasa previamente calculados para el nuevo tamaño de porción y no por regla de 3. 
+
+ 
+
+Para calcular como kilocalorías kcal  
+
+kcal = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 4) + (gramos de grasa* x 9) 
+
+ 
+
+Para calcular como kiloJoules kJ 
+
+kJ = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 17) + (gramos de grasa* x 37) 
+
+ 
+
+*Valores previamente redondeados a entero 
+
+Ambos resultados de kcal y kJ se reportan en la tabla nutrimental también como número entero. 
+
+ 
+
+Por ejemplo, si de acuerdo a los análisis, un alimento tiene: 4.25% de proteína, 10,80 % de hidratos de carbono disponibles y 5,35% de grasa. Significa que en 100 gramos de producto para la tabla nutrimental hay: 4g de proteína, 11g de hidratos de carbono disponibles y 5 gramos de grasa. 
+
+ 
+
+Para obtener en una porción de 100 gramos: 
+
+kcal = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 4) + (gramos de grasa* x 9) =((4+11)x4)+(5x9)=105 kcal por 100 gramos 
+
+ 
+
+kJ = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 17) + (gramos de grasa* x 37)=((4+11)x17)+(5x37)=440 kJ por 100 gramos 
+
+ 
+
+ 
+
+Para obtener en una porción de 50 gramos: 
+
+Si en 100 gramos de producto hay 4.25 gramos de proteína, se redondea a 4 y por tanto, en 50 gramos de producto hay 2 gramos de proteína. 
+
+ 
+
+Gramos de proteína en 50g = ((4x50)/100)= 2gramos 
+
+ 
+
+Si en 100 gramos de producto hay 11 gramos de hidratos de carbono disponibles, en 50 gramos de producto hay 5.5 gramos que debe ser redondeado a 6,0. 
+
+ 
+
+Gramos de hidratos de carbono en 50g= ((11x50)/100)=5.5gramos que se redondea a 6.0 gramos. 
+
+ 
+
+Si en 100 gramos de producto hay 5.35 gramos de grasa (se redondea a 5), por tanto en 50 gramos hay 2.5 gramos de grasa. 
+
+ 
+
+Gramos de grasa = ((5x50)/100)= 2.5, se redondea a 3.0 gramos de grasa. 
+
+ 
+
+Entonces en la nueva porción de 50 gramos de producto habrá 2 gramos de proteína, 6 gramos de hidratos de carbono disponibles y 3 gramos de grasa. Con base a esto se calculan los valores de kcal y kJoules. 
+
+ 
+
+kcal = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 4) + (gramos de grasa* x 9) =((2+6)x4)+(3x9)= 59 kcal por 50 gramos 
+
+ 
+
+kJ = ((gramos de proteína* + gramos de carbohidratos disponibles*) x 17) + (gramos de grasa* x 37)=((2+6)x17)+(3x37)= 247 kJ por 50 gramos 
+
+ 
+
+Para 50 gramos de producto el contenido calórico es 59 kcal y 247 kJoules. 
+
+ 
+
+Para calcular el contenido energético por envase 
+
+Primero se divide el contenido neto (gramos o mililitros) entre 100 y se obtiene un factor “CN” 
+
+CN= g o mL de contenido neto/100 
+
+ 
+
+Segundo, se multiplican las Kcal y Kjoules obtenidos para 100 gramos por el factor. 
+
+ 
+
+Por ejemplo, el contenido neto es de 500 gramos y el contenido energético para 100 gramos es de kcal=105 y kJoules=440. 
+
+ 
+
+El contenido energético para un envase que contiene 500 gramos de producto sería entonces: 
+
+ 
+
+CN=500/100 = 5 
+
+Kcal en el envase de 500 gramos = (kcal por 100g) x (CN) 
+
+Kcal en el envase de 500 gramos = (105) x (5)= 525 kcal 
+
+ 
+
+kJ en el envase de 500 gramos = (kJ por 100g) x (CN) 
+
+kJ en el envase de 500 gramos = (440) x (5)= 2200 kJ 
+
+ 
+
+ 
+
+ 
+
+Información adicional** 
+
+Se trata de vitaminas y/o minerales extra que se desee añadir. 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 

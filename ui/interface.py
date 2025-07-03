@@ -747,7 +747,7 @@ class MainInterface(tk.Tk):
         basic_frame = tk.LabelFrame(scrollable_frame, text="Información Básica", font=("Segoe UI", 12, "bold"), bg="white", fg="#0B5394")
         basic_frame.pack(fill="x", pady=(0, 20), padx=10)
 
-        tk.Label(basic_frame, text="Nombre del producto:", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        tk.Label(basic_frame, text="# de muestra:", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=10, pady=5)
         self.nombre_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=40)
         self.nombre_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
@@ -903,48 +903,73 @@ class MainInterface(tk.Tk):
             messagebox.showerror("Error", f"Error en el cálculo: {str(e)}")
 
     def _calcular_nutrimental(self, data):
-        # Redondear a enteros según especificación
-        proteina = round(data["proteina"])
-        grasa_total = round(data["grasa_total"])
-        azucares = round(data["azucares"])
-        fibra_dietetica = round(data["fibra_dietetica"])
+        # CORRECCIÓN: No redondear los valores de entrada - mantener decimales para cálculos
+        proteina = data["proteina"]
+        grasa_total = data["grasa_total"]
+        azucares = data["azucares"]
+        fibra_dietetica = data["fibra_dietetica"]
         
-        # Cálculos derivados
-        grasa_saturada = round(grasa_total * (data["acidos_grasos_saturados"] / 100))
+        # Cálculos derivados usando valores sin redondear
+        grasa_saturada = grasa_total * (data["acidos_grasos_saturados"] / 100)
+        
+        # CORRECCIÓN: Hidratos de carbono totales según fórmula del documento
         hidratos_carbono_totales = 100 - (data["humedad"] + data["cenizas"] + proteina + grasa_total)
-        carbohidratos_disponibles = round(hidratos_carbono_totales - fibra_dietetica)
         
-        # Energía por 100g
-        energia_kcal = round((proteina + carbohidratos_disponibles) * 4 + grasa_total * 9)
-        energia_kj = round((proteina + carbohidratos_disponibles) * 17 + grasa_total * 37)
+        # CORRECCIÓN: Carbohidratos disponibles
+        carbohidratos_disponibles = hidratos_carbono_totales - fibra_dietetica
         
-        # Por 100g
+        # Por 100g - aplicar redondeo matemático a entero según especificación
         por_100g = {
-            "proteina": proteina,
-            "grasa_total": grasa_total,
-            "grasa_saturada": grasa_saturada,
-            "carbohidratos_disponibles": carbohidratos_disponibles,
-            "azucares": azucares,
-            "fibra_dietetica": fibra_dietetica,
-            "sodio": round(data["sodio"]),
-            "energia_kcal": energia_kcal,
-            "energia_kj": energia_kj
+            "proteina": round(proteina),
+            "grasa_total": round(grasa_total),
+            "grasa_saturada": round(grasa_saturada),
+            "carbohidratos_disponibles": round(carbohidratos_disponibles),
+            "azucares": round(azucares),
+            "fibra_dietetica": round(fibra_dietetica),
+            "sodio": self._aplicar_regla_redondeo_sodio(data["sodio"]),
+            "energia_kcal": 0,  # Se calculará después
+            "energia_kj": 0     # Se calculará después
         }
         
-        # Por porción
+        # CORRECCIÓN: Calcular energía usando valores redondeados a entero
+        energia_kcal_100g = (por_100g["proteina"] + por_100g["carbohidratos_disponibles"]) * 4 + por_100g["grasa_total"] * 9
+        energia_kj_100g = (por_100g["proteina"] + por_100g["carbohidratos_disponibles"]) * 17 + por_100g["grasa_total"] * 37
+        
+        por_100g["energia_kcal"] = round(energia_kcal_100g)
+        por_100g["energia_kj"] = round(energia_kj_100g)
+        
+        # Por porción - calcular usando regla de 3 simple
         factor_porcion = data["porcion"] / 100
         por_porcion = {}
-        for key, value in por_100g.items():
-            if key == "sodio":
-                sodio_porcion = value * factor_porcion
-                if sodio_porcion < 5:
-                    por_porcion[key] = 0
-                elif sodio_porcion <= 140:
-                    por_porcion[key] = round(sodio_porcion / 5) * 5
-                else:
-                    por_porcion[key] = round(sodio_porcion / 10) * 10
-            else:
-                por_porcion[key] = round(value * factor_porcion)
+        
+        # CORRECCIÓN: Calcular cada nutriente por separado usando regla de 3
+        proteina_porcion = (proteina * data["porcion"]) / 100
+        grasa_total_porcion = (grasa_total * data["porcion"]) / 100
+        grasa_saturada_porcion = (grasa_saturada * data["porcion"]) / 100
+        carbohidratos_disponibles_porcion = (carbohidratos_disponibles * data["porcion"]) / 100
+        azucares_porcion = (azucares * data["porcion"]) / 100
+        fibra_dietetica_porcion = (fibra_dietetica * data["porcion"]) / 100
+        sodio_porcion = (data["sodio"] * data["porcion"]) / 100
+        
+        # Redondear a enteros
+        por_porcion = {
+            "proteina": round(proteina_porcion),
+            "grasa_total": round(grasa_total_porcion),
+            "grasa_saturada": round(grasa_saturada_porcion),
+            "carbohidratos_disponibles": round(carbohidratos_disponibles_porcion),
+            "azucares": round(azucares_porcion),
+            "fibra_dietetica": round(fibra_dietetica_porcion),
+            "sodio": self._aplicar_regla_redondeo_sodio(sodio_porcion),
+            "energia_kcal": 0,  # Se calculará después
+            "energia_kj": 0     # Se calculará después
+        }
+        
+        # CORRECCIÓN: Calcular energía por porción usando valores redondeados de la porción
+        energia_kcal_porcion = (por_porcion["proteina"] + por_porcion["carbohidratos_disponibles"]) * 4 + por_porcion["grasa_total"] * 9
+        energia_kj_porcion = (por_porcion["proteina"] + por_porcion["carbohidratos_disponibles"]) * 17 + por_porcion["grasa_total"] * 37
+        
+        por_porcion["energia_kcal"] = round(energia_kcal_porcion)
+        por_porcion["energia_kj"] = round(energia_kj_porcion)
         
         resultados = {
             "por_100g": por_100g,
@@ -953,13 +978,25 @@ class MainInterface(tk.Tk):
         
         # Por envase (si se especifica)
         if "contenido_neto" in data and data["contenido_neto"]:
-            factor_envase = data["contenido_neto"] / 100
+            # CORRECCIÓN: Factor CN según documento
+            factor_cn = data["contenido_neto"] / 100
             resultados["por_envase"] = {
-                "energia_kcal": round(energia_kcal * factor_envase),
-                "energia_kj": round(energia_kj * factor_envase)
+                "energia_kcal": round(por_100g["energia_kcal"] * factor_cn),
+                "energia_kj": round(por_100g["energia_kj"] * factor_cn)
             }
-        
+    
         return resultados
+
+    def _aplicar_regla_redondeo_sodio(self, valor_sodio):
+        """Aplicar reglas específicas de redondeo para sodio según NOM 051"""
+        if valor_sodio < 5:
+            return 0
+        elif valor_sodio <= 140:
+            # Múltiplos de 5
+            return round(valor_sodio / 5) * 5
+        else:
+            # Múltiplos de 10
+            return round(valor_sodio / 10) * 10
 
     def _mostrar_resultados(self, resultados):
         self.resultados_text.config(state="normal")
@@ -972,14 +1009,28 @@ class MainInterface(tk.Tk):
         texto += "POR 100g/mL:\n"
         texto += "-" * 20 + "\n"
         for key, value in resultados["por_100g"].items():
-            texto += f"{key.replace('_', ' ').title()}: {value}\n"
+            if key == "energia_kcal":
+                texto += f"Contenido energético: {value} kcal\n"
+            elif key == "energia_kj":
+                texto += f"Contenido energético: {value} kJ\n"
+            elif key == "sodio":
+                texto += f"Sodio: {value} mg\n"
+            else:
+                texto += f"{key.replace('_', ' ').title()}: {value} g\n"
         texto += "\n"
         
         # Por porción
         texto += "POR PORCIÓN:\n"
         texto += "-" * 20 + "\n"
         for key, value in resultados["por_porcion"].items():
-            texto += f"{key.replace('_', ' ').title()}: {value}\n"
+            if key == "energia_kcal":
+                texto += f"Contenido energético: {value} kcal\n"
+            elif key == "energia_kj":
+                texto += f"Contenido energético: {value} kJ\n"
+            elif key == "sodio":
+                texto += f"Sodio: {value} mg\n"
+            else:
+                texto += f"{key.replace('_', ' ').title()}: {value} g\n"
         texto += "\n"
         
         # Por envase
@@ -987,8 +1038,13 @@ class MainInterface(tk.Tk):
             texto += "POR ENVASE:\n"
             texto += "-" * 20 + "\n"
             for key, value in resultados["por_envase"].items():
-                texto += f"{key.replace('_', ' ').title()}: {value}\n"
-    
+                if key == "energia_kcal":
+                    texto += f"Contenido energético: {value} kcal\n"
+                elif key == "energia_kj":
+                    texto += f"Contenido energético: {value} kJ\n"
+                else:
+                    texto += f"{key.replace('_', ' ').title()}: {value}\n"
+
         self.resultados_text.insert("1.0", texto)
         self.resultados_text.config(state="disabled")
 
