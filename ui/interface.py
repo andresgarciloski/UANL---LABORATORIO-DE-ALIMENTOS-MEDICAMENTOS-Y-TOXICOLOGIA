@@ -30,8 +30,22 @@ class MainInterface(tk.Tk):
         self.rol = rol  # Puedes usarlo si lo necesitas
 
         self.menu_visible = True  # Estado del menú lateral
+        self.menu_frame = None  # Inicializar explícitamente
+
+        # Configurar protocolo de cierre
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.create_widgets()
+
+    def on_closing(self):
+        """Limpia recursos antes de cerrar"""
+        try:
+            if hasattr(self, "menu_frame") and self.menu_frame is not None:
+                self.menu_frame.destroy()
+        except:
+            pass
+        
+        self.destroy()
 
     def create_widgets(self):
         # Header
@@ -113,13 +127,19 @@ class MainInterface(tk.Tk):
     def create_side_menu(self):
         # Si ya existe, destrúyelo para evitar duplicados
         if hasattr(self, "menu_frame") and self.menu_frame is not None:
-            self.menu_frame.destroy()
+            try:
+                self.menu_frame.destroy()
+            except:
+                pass
 
-        # Crear menú lateral como Toplevel SIN transparencia
+        # Crear menú lateral como Toplevel mejorado
         self.menu_frame = tk.Toplevel(self)
         self.menu_frame.overrideredirect(True)
         self.menu_frame.attributes('-topmost', True)
-        self.menu_frame.configure(bg="#0B5394")  # Mismo color que el header
+        self.menu_frame.configure(bg="#0B5394")
+        
+        # Evitar que aparezca en la barra de tareas
+        self.menu_frame.transient(self)
 
         self.update_side_menu_geometry()
 
@@ -133,7 +153,6 @@ class MainInterface(tk.Tk):
         )
         menu_label.pack(pady=(25, 15), anchor="w", padx=30)
 
-        # CAMBIO: Renombrar "Exportar Excel" a "Tabla Nutrimental"
         sections = ["Cálculos", "Tabla Nutrimental", "Historial"]
         self.menu_buttons = []
         for section in sections:
@@ -173,26 +192,48 @@ class MainInterface(tk.Tk):
         )
         close_btn.place(x=220, y=10, width=30, height=30)
 
-        # Mantener menú alineado al cambiar tamaño/mover ventana
-        self.bind("<Configure>", lambda e: self.update_side_menu_geometry() if self.menu_visible else None)
+        # Mantener menú alineado al cambiar tamaño/mover ventana - MEJORADO
+        self.bind("<Configure>", self._on_window_configure)
+        self.menu_frame.bind("<FocusOut>", lambda e: None)  # Evitar cierre accidental
+
+    def _on_window_configure(self, event):
+        """Maneja cambios en la ventana principal de manera optimizada"""
+        if event.widget == self and self.menu_visible and hasattr(self, "menu_frame"):
+            self.after_idle(self.update_side_menu_geometry)
 
     def update_side_menu_geometry(self):
-        # Calcula posición y tamaño para cubrir todo el lateral izquierdo, justo debajo del header
-        self.update_idletasks()
-        x = self.winfo_rootx()
-        y = self.winfo_rooty()
-        h = self.winfo_height()
-        header_height = 60  # Altura del banner superior
-        self.menu_frame.geometry(f"260x{h-header_height}+{x}+{y+header_height}")
+        """Actualiza la geometría del menú lateral de manera segura"""
+        if not hasattr(self, "menu_frame") or self.menu_frame is None:
+            return
+            
+        try:
+            # Calcula posición y tamaño para cubrir todo el lateral izquierdo
+            self.update_idletasks()
+            x = self.winfo_rootx()
+            y = self.winfo_rooty()
+            h = self.winfo_height()
+            header_height = 60  # Altura del banner superior
+            
+            # Verificar que la ventana esté visible y tenga dimensiones válidas
+            if h > header_height and x >= 0 and y >= 0:
+                self.menu_frame.geometry(f"260x{h-header_height}+{x}+{y+header_height}")
+        except Exception:
+            pass  # Ignorar errores durante transiciones
 
     def toggle_menu(self):
-        if hasattr(self, "menu_frame") and self.menu_frame is not None and self.menu_visible:
-            self.menu_frame.withdraw()
+        """Manejo mejorado del toggle del menú"""
+        try:
+            if hasattr(self, "menu_frame") and self.menu_frame is not None and self.menu_visible:
+                self.menu_frame.withdraw()
+                self.menu_visible = False
+            else:
+                self.create_side_menu()
+                if hasattr(self, "menu_frame") and self.menu_frame is not None:
+                    self.menu_frame.deiconify()
+                    self.menu_visible = True
+        except Exception:
             self.menu_visible = False
-        else:
             self.create_side_menu()
-            self.menu_frame.deiconify()
-            self.menu_visible = True
 
     def show_user_menu(self):
         # Crear ventana tipo popup personalizada dentro de la ventana principal
@@ -240,7 +281,15 @@ class MainInterface(tk.Tk):
         popup.bind("<FocusOut>", lambda e: popup.destroy())
 
     def logout(self):
+        """Cerrar sesión con limpieza de recursos"""
         if messagebox.askyesno("Cerrar sesión", "¿Deseas cerrar sesión?"):
+            try:
+                # Limpiar recursos
+                if hasattr(self, "menu_frame") and self.menu_frame is not None:
+                    self.menu_frame.destroy()
+            except:
+                pass
+                
             self.destroy()
             from ui.login_screen import LoginWindow
             login = LoginWindow()
@@ -527,9 +576,19 @@ class MainInterface(tk.Tk):
         ).pack(side="right", padx=10, ipadx=10, ipady=6)
 
     def show_user_historial_table(self):
+        # Limpiar contenido anterior de manera segura
+        for widget in self.content_frame.winfo_children():
+            try:
+                widget.destroy()
+            except:
+                pass
+
         # Si ya existe el frame de la tabla, destrúyelo para evitar duplicados
         if hasattr(self, "historial_table_frame") and self.historial_table_frame is not None:
-            self.historial_table_frame.destroy()
+            try:
+                self.historial_table_frame.destroy()
+            except:
+                pass
 
         # CAMBIO: Agregar Canvas y Scrollbar para toda la sección
         main_canvas = tk.Canvas(self.content_frame, bg="white")
@@ -550,8 +609,11 @@ class MainInterface(tk.Tk):
         self.historial_table_frame.grid_rowconfigure(0, weight=0)
         self.historial_table_frame.grid_columnconfigure(0, weight=1)
 
-        self.nombre_var = tk.StringVar()
-        self.fecha_var = tk.StringVar()
+        # Inicializar variables si no existen
+        if not hasattr(self, 'nombre_var'):
+            self.nombre_var = tk.StringVar()
+        if not hasattr(self, 'fecha_var'):
+            self.fecha_var = tk.StringVar()
 
         tk.Label(filtro_frame, text="Nombre:", bg="white", font=("Segoe UI", 10)).pack(side="left", padx=(0, 5))
         nombre_entry = tk.Entry(filtro_frame, textvariable=self.nombre_var, width=15, font=("Segoe UI", 10))
@@ -588,25 +650,37 @@ class MainInterface(tk.Tk):
         self._actualizar_tabla_historial_usuario_filtrada()
 
     def _actualizar_tabla_historial_usuario_filtrada(self):
-        # Borra la tabla anterior si existe
+        # Borra la tabla anterior si existe de manera segura
         for widget in self.tabla_historial_frame.winfo_children():
-            widget.destroy()
+            try:
+                widget.destroy()
+            except:
+                pass
 
-        nombre = self.nombre_var.get()
-        fecha = self.fecha_var.get()
+        nombre = self.nombre_var.get() if hasattr(self, 'nombre_var') else ""
+        fecha = self.fecha_var.get() if hasattr(self, 'fecha_var') else ""
 
-        from core.auth import obtener_historial_usuario
-        usuario_id = self.get_usuario_id()
-        historial = obtener_historial_usuario(usuario_id)  # Lista de tuplas
+        try:
+            from core.auth import obtener_historial_usuario
+            usuario_id = self.get_usuario_id()
+            historial = obtener_historial_usuario(usuario_id)  # Lista de tuplas
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo cargar el historial: {e}")
+            historial = []
 
         filtrado = []
         for item in historial:
-            Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
-            if nombre and nombre.lower() not in str(Nombre).lower():
+            try:
+                Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
+                # Aplicar filtros con búsqueda flexible
+                if nombre and nombre.lower() not in str(Nombre).lower():
+                    continue
+                if fecha and str(Fecha) != fecha:
+                    continue
+                filtrado.append(item)
+            except Exception as e:
+                print(f"Error procesando item del historial: {e}")
                 continue
-            if fecha and str(Fecha) != fecha:
-                continue
-            filtrado.append(item)
 
         # Encabezados (sin UsuarioId)
         headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Archivo", "Descargar", "Eliminar"]
@@ -618,98 +692,152 @@ class MainInterface(tk.Tk):
                 bg=header_bg, fg=header_fg, padx=10, pady=8, borderwidth=0, relief="flat"
             ).grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 2, 2), pady=(0, 2))
 
-        # Cargar imagen de descarga
-        download_path = os.path.join(os.path.dirname(__file__), "..", "img", "download.png")
-        download_path = os.path.abspath(download_path)
-        download_img = Image.open(download_path).resize((20, 20), Image.LANCZOS)
-        download_icon = ImageTk.PhotoImage(download_img)
-        self.download_icon = download_icon  # Mantener referencia
+        # Cargar imágenes con manejo de errores
+        try:
+            download_path = os.path.join(os.path.dirname(__file__), "..", "img", "download.png")
+            download_path = os.path.abspath(download_path)
+            download_img = Image.open(download_path).resize((20, 20), Image.LANCZOS)
+            download_icon = ImageTk.PhotoImage(download_img)
+            self.download_icon = download_icon
+        except Exception:
+            download_icon = None
 
-        # Cargar imagen de eliminar (basura)
-        trash_path = os.path.join(os.path.dirname(__file__), "..", "img", "basura.png")
-        trash_path = os.path.abspath(trash_path)
-        trash_img = Image.open(trash_path).resize((20, 20), Image.LANCZOS)
-        trash_icon = ImageTk.PhotoImage(trash_img)
-        self.trash_icon = trash_icon  # Mantener referencia
+        try:
+            trash_path = os.path.join(os.path.dirname(__file__), "..", "img", "basura.png")
+            trash_path = os.path.abspath(trash_path)
+            trash_img = Image.open(trash_path).resize((20, 20), Image.LANCZOS)
+            trash_icon = ImageTk.PhotoImage(trash_img)
+            self.trash_icon = trash_icon
+        except Exception:
+            trash_icon = None
 
         row_bg1 = "#e6f0fa"
         row_bg2 = "#f7fbff"
         for row, item in enumerate(filtrado, start=1):
-            Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
-            bg = row_bg1 if row % 2 == 1 else row_bg2
+            try:
+                Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item
+                bg = row_bg1 if row % 2 == 1 else row_bg2
 
-            tk.Label(self.tabla_historial_frame, text=Id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=0, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.tabla_historial_frame, text=Nombre, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=1, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.tabla_historial_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4, wraplength=200, justify="left").grid(row=row, column=2, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.tabla_historial_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=3, sticky="nsew", padx=2, pady=1)
-            tk.Label(self.tabla_historial_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=4, sticky="nsew", padx=2, pady=1)
-            archivo_text = "Sí" if Archivo else "No"
-            tk.Label(self.tabla_historial_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=5, sticky="nsew", padx=2, pady=1)
+                tk.Label(self.tabla_historial_frame, text=Id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=0, sticky="nsew", padx=2, pady=1)
+                tk.Label(self.tabla_historial_frame, text=Nombre, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=1, sticky="nsew", padx=2, pady=1)
+                tk.Label(self.tabla_historial_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4, wraplength=200, justify="left").grid(row=row, column=2, sticky="nsew", padx=2, pady=1)
+                tk.Label(self.tabla_historial_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=3, sticky="nsew", padx=2, pady=1)
+                tk.Label(self.tabla_historial_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=4, sticky="nsew", padx=2, pady=1)
+                archivo_text = "Sí" if Archivo else "No"
+                tk.Label(self.tabla_historial_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=5, sticky="nsew", padx=2, pady=1)
 
-            # Botón para descargar archivo
-            download_btn = tk.Button(
-                self.tabla_historial_frame,
-                image=self.download_icon,
-                bg=bg,
-                bd=0,
-                activebackground="#b3d1f7",
-                cursor="hand2",
-                command=lambda archivo=Archivo, nombre=Nombre: self.descargar_archivo_historial(archivo, nombre)
-            )
-            download_btn.grid(row=row, column=6, padx=4, pady=1)
+                # Botón para descargar archivo
+                download_btn = tk.Button(
+                    self.tabla_historial_frame,
+                    text="📥" if download_icon is None else "",
+                    image=download_icon if download_icon else None,
+                    bg=bg,
+                    bd=0,
+                    activebackground="#b3d1f7",
+                    cursor="hand2",
+                    command=lambda archivo=Archivo, nombre=Nombre: self.descargar_archivo_historial(archivo, nombre)
+                )
+                download_btn.grid(row=row, column=6, padx=4, pady=1)
 
-            # Botón para eliminar registro
-            delete_btn = tk.Button(
-                self.tabla_historial_frame,
-                image=self.trash_icon,
-                bg=bg,
-                bd=0,
-                activebackground="#f7bdbd",
-                cursor="hand2",
-                command=lambda id_hist=Id: self.delete_user_historial_record(id_hist)
-            )
-            delete_btn.grid(row=row, column=7, padx=4, pady=1)
+                # Botón para eliminar registro
+                delete_btn = tk.Button(
+                    self.tabla_historial_frame,
+                    text="🗑" if trash_icon is None else "",
+                    image=trash_icon if trash_icon else None,
+                    bg=bg,
+                    bd=0,
+                    activebackground="#f7bdbd",
+                    cursor="hand2",
+                    command=lambda id_hist=Id: self.delete_user_historial_record(id_hist)
+                )
+                delete_btn.grid(row=row, column=7, padx=4, pady=1)
+            except Exception as e:
+                print(f"Error creando fila {row}: {e}")
+                continue
 
         # Hacer columnas expandibles
         for col in range(len(headers)):
             self.tabla_historial_frame.grid_columnconfigure(col, weight=1)
 
+    def get_usuario_id(self):
+        """Obtiene el ID del usuario actual con manejo de errores mejorado"""
+        try:
+            from core.auth import obtener_id_por_username
+            if not self.username:
+                messagebox.showerror("Error", "No hay usuario autenticado")
+                return None
+            
+            user_id = obtener_id_por_username(self.username)
+            if user_id is None:
+                messagebox.showerror("Error", f"Usuario '{self.username}' no encontrado en la base de datos")
+                return None
+            
+            return user_id
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al obtener ID de usuario: {e}")
+            return None
+
     def descargar_archivo_historial(self, archivo_bin, nombre):
+        """Descarga archivo con validaciones mejoradas"""
         if not archivo_bin:
-            messagebox.showerror("Error", "No hay archivo para descargar.")
+            messagebox.showwarning("Advertencia", "No hay archivo para descargar.")
             return
-        # Sugerir extensión .xlsx si el nombre lo requiere
-        if not nombre.lower().endswith(".xlsx"):
-            nombre = nombre + ".xlsx"
-        file_path = filedialog.asksaveasfilename(
-            title="Guardar archivo",
-            initialfile=nombre,
-            defaultextension=".xlsx",
-            filetypes=[("Archivos Excel", "*.xlsx"), ("Todos los archivos", "*")]
-        )
-        if file_path:
+            
+        try:
+            # Limpiar nombre de archivo
+            nombre_limpio = "".join(c for c in str(nombre) if c.isalnum() or c in (' ', '-', '_', '.')).rstrip()
+            if not nombre_limpio:
+                nombre_limpio = "archivo_descargado"
+                
+            # Sugerir extensión .xlsx si el nombre lo requiere
+            if not nombre_limpio.lower().endswith(('.xlsx', '.xls', '.pdf', '.doc', '.docx')):
+                nombre_limpio = nombre_limpio + ".xlsx"
+                
+            # Obtener ubicación de escritorio de manera segura
             try:
+                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+                if not os.path.exists(desktop):
+                    desktop = os.path.expanduser("~")
+            except:
+                desktop = ""
+                
+            file_path = filedialog.asksaveasfilename(
+                title="Guardar archivo",
+                initialfile=nombre_limpio,
+                initialdir=desktop,
+                defaultextension=".xlsx",
+                filetypes=[
+                    ("Archivos Excel", "*.xlsx"),
+                    ("Archivos PDF", "*.pdf"),
+                    ("Archivos Word", "*.docx"),
+                    ("Todos los archivos", "*.*")
+                ]
+            )
+            
+            if file_path:
                 with open(file_path, "wb") as f:
                     f.write(archivo_bin)
-                messagebox.showinfo("Éxito", f"Archivo guardado en:\n{file_path}")
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo guardar el archivo: {e}")
-
-    def get_usuario_id(self):
-        # Debes implementar la lógica para obtener el id del usuario actual.
-        # Por ejemplo, si tienes el username, consulta la base de datos para obtener el id.
-        from core.auth import obtener_id_por_username
-        return obtener_id_por_username(self.username)
+                messagebox.showinfo("Éxito", f"Archivo guardado exitosamente:\n{file_path}")
+            else:
+                messagebox.showinfo("Cancelado", "Descarga cancelada por el usuario.")
+                
+        except PermissionError:
+            messagebox.showerror("Error", "No tienes permisos para escribir en esa ubicación.\nIntenta con otra carpeta.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar el archivo: {e}")
 
     def delete_user_historial_record(self, id_hist):
-        from core.auth import eliminar_historial  # Debes tener esta función en tu backend
-        if messagebox.askyesno("Eliminar registro", "¿Estás seguro de que deseas eliminar este registro del historial?"):
-            try:
-                eliminar_historial(id_hist)
-                messagebox.showinfo("Éxito", "Registro eliminado correctamente.")
-                self.show_user_historial_table()
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo eliminar el registro: {e}")
+        """Elimina registro con confirmación mejorada"""
+        if not messagebox.askyesno("Eliminar registro", "¿Estás seguro de que deseas eliminar este registro del historial?\n\nEsta acción no se puede deshacer."):
+            return
+            
+        try:
+            from core.auth import eliminar_historial
+            eliminar_historial(id_hist)
+            messagebox.showinfo("Éxito", "Registro eliminado correctamente.")
+            self._actualizar_tabla_historial_usuario_filtrada()  # Actualizar tabla
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo eliminar el registro: {e}")
 
     def show_export_excel_section(self):
         # Limpiar el contenido anterior
@@ -1049,6 +1177,7 @@ class MainInterface(tk.Tk):
         self.resultados_text.config(state="disabled")
 
     def exportar_nutrimental_excel(self):
+        """Exporta tabla nutrimental con validaciones mejoradas"""
         if not hasattr(self, "ultimo_calculo"):
             messagebox.showwarning("Advertencia", "Primero debe calcular la tabla nutrimental")
             return
@@ -1059,25 +1188,29 @@ class MainInterface(tk.Tk):
             import datetime
             import os
             
-            # OBTENER VALORES ACTUALES DE LOS CAMPOS
+            # OBTENER VALORES ACTUALES DE LOS CAMPOS con validaciones
             nombre_actual = self.nombre_entry.get().strip()
             descripcion_actual = self.descripcion_entry.get("1.0", "end-1c").strip()
+            
+            # Validar que el nombre no esté vacío
+            if not nombre_actual:
+                messagebox.showerror("Error", "El campo '# de muestra' es obligatorio para exportar")
+                self.nombre_entry.focus()
+                return
             
             # CAMBIO: Obtener fecha y hora actuales automáticamente
             fecha_actual_widget = datetime.datetime.now().strftime("%Y-%m-%d")
             hora_actual_widget = datetime.datetime.now().strftime("%H:%M:%S")
             
-            # Validar que el nombre no esté vacío
-            if not nombre_actual:
-                messagebox.showerror("Error", "El campo 'Nombre' es obligatorio")
-                return
-            
             # Generar nombre predeterminado con fecha y hora
             fecha_actual = datetime.datetime.now()
             nombre_base = nombre_actual or "Tabla_Nutrimental"
-            # Limpiar caracteres especiales del nombre
+            
+            # Limpiar caracteres especiales del nombre de manera más robusta
             nombre_limpio = "".join(c for c in nombre_base if c.isalnum() or c in (' ', '-', '_')).rstrip()
             nombre_limpio = nombre_limpio.replace(' ', '_')
+            if not nombre_limpio:  # Si queda vacío después de limpiar
+                nombre_limpio = "Tabla_Nutrimental"
             
             # Formato: NombreProducto_YYYY-MM-DD_HHMMSS.xlsx
             timestamp = fecha_actual.strftime("%Y-%m-%d_%H%M%S")
@@ -1088,10 +1221,10 @@ class MainInterface(tk.Tk):
             
             # Información básica (USAR VALORES ACTUALES)
             datos_excel.append(["INFORMACIÓN BÁSICA", "", ""])
-            datos_excel.append(["Nombre", nombre_actual, ""])
+            datos_excel.append(["# de muestra", nombre_actual, ""])
             datos_excel.append(["Descripción", descripcion_actual, ""])
-            datos_excel.append(["Fecha", fecha_actual_widget, ""])
-            datos_excel.append(["Hora", hora_actual_widget, ""])
+            datos_excel.append(["Fecha de análisis", fecha_actual_widget, ""])
+            datos_excel.append(["Hora de análisis", hora_actual_widget, ""])
             datos_excel.append(["Usuario", self.username, ""])
             datos_excel.append(["Fecha de exportación", fecha_actual.strftime("%Y-%m-%d %H:%M:%S"), ""])
             datos_excel.append(["", "", ""])
@@ -1100,15 +1233,32 @@ class MainInterface(tk.Tk):
             datos_excel.append(["DATOS DE ENTRADA", "", ""])
             for key, value in self.ultimo_calculo["datos_entrada"].items():
                 nombre_campo = key.replace('_', ' ').title()
-                datos_excel.append([nombre_campo, value, ""])
+                # Formatear unidades apropiadas
+                if key == "sodio":
+                    datos_excel.append([f"{nombre_campo} (mg/100g)", value, ""])
+                elif key == "porcion":
+                    datos_excel.append([f"{nombre_campo} (g)", value, ""])
+                elif key == "contenido_neto":
+                    datos_excel.append([f"{nombre_campo} (g/mL)", value, ""])
+                else:
+                    datos_excel.append([f"{nombre_campo} (%)", value, ""])
             datos_excel.append(["", "", ""])
             
             # Tabla nutrimental
-            datos_excel.append(["TABLA NUTRIMENTAL", "Por 100g", "Por Porción"])
+            datos_excel.append(["TABLA NUTRIMENTAL MEXICANA", "Por 100g/mL", "Por Porción"])
             resultados = self.ultimo_calculo["resultados"]
             
+            # Formatear resultados con unidades apropiadas
             for key in resultados["por_100g"].keys():
-                nombre = key.replace('_', ' ').title()
+                if key == "energia_kcal":
+                    nombre = "Contenido energético (kcal)"
+                elif key == "energia_kj":
+                    nombre = "Contenido energético (kJ)"
+                elif key == "sodio":
+                    nombre = "Sodio (mg)"
+                else:
+                    nombre = f"{key.replace('_', ' ').title()} (g)"
+                    
                 valor_100g = resultados["por_100g"][key]
                 valor_porcion = resultados["por_porcion"][key]
                 datos_excel.append([nombre, valor_100g, valor_porcion])
@@ -1116,16 +1266,26 @@ class MainInterface(tk.Tk):
             # Por envase si existe
             if "por_envase" in resultados:
                 datos_excel.append(["", "", ""])
-                datos_excel.append(["POR ENVASE", "", ""])
+                datos_excel.append(["POR ENVASE COMPLETO", "", ""])
                 for key, value in resultados["por_envase"].items():
-                    nombre = key.replace('_', ' ').title()
+                    if key == "energia_kcal":
+                        nombre = "Contenido energético total (kcal)"
+                    elif key == "energia_kj":
+                        nombre = "Contenido energético total (kJ)"
+                    else:
+                        nombre = f"{key.replace('_', ' ').title()}"
                     datos_excel.append([nombre, value, ""])
             
             # Crear DataFrame
-            df = pd.DataFrame(datos_excel, columns=["Componente", "Valor 100g", "Valor Porción"])
+            df = pd.DataFrame(datos_excel, columns=["Componente", "Valor 100g/mL", "Valor Porción"])
             
-            # Sugerir ubicación de descarga (Escritorio del usuario)
-            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            # Sugerir ubicación de descarga (Escritorio del usuario) de manera segura
+            try:
+                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+                if not os.path.exists(desktop):
+                    desktop = os.path.expanduser("~")
+            except:
+                desktop = ""
             
             # Guardar archivo con nombre predeterminado
             filename = filedialog.asksaveasfilename(
@@ -1137,50 +1297,73 @@ class MainInterface(tk.Tk):
             )
             
             if filename:
-                # Crear el archivo Excel
-                df.to_excel(filename, index=False, sheet_name="Tabla Nutrimental")
-                
-                # Leer el archivo para guardarlo en la base de datos
-                with open(filename, "rb") as f:
-                    archivo_binario = f.read()
-                
-                # Guardar en la base de datos
-                from core.auth import agregar_historial
-                usuario_id = self.get_usuario_id()
-                
-                # Crear descripción más detallada (USAR DESCRIPCIÓN ACTUAL + DATOS NUTRICIONALES)
-                descripcion_completa = f"{descripcion_actual}\n\n"
-                descripcion_completa += "DATOS NUTRICIONALES:\n"
-                descripcion_completa += f"- Proteína: {resultados['por_100g']['proteina']}g/100g\n"
-                descripcion_completa += f"- Grasa total: {resultados['por_100g']['grasa_total']}g/100g\n"
-                descripcion_completa += f"- Carbohidratos disponibles: {resultados['por_100g']['carbohidratos_disponibles']}g/100g\n"
-                descripcion_completa += f"- Energía: {resultados['por_100g']['energia_kcal']} kcal/100g\n"
-                descripcion_completa += f"- Tamaño de porción: {self.ultimo_calculo['datos_entrada']['porcion']}g\n"
-                descripcion_completa += f"Archivo generado automáticamente: {os.path.basename(filename)}"
-                
-                # USAR VALORES ACTUALES DE LOS CAMPOS DE LA INTERFAZ
-                agregar_historial(
-                    nombre_actual,              # Nombre del campo de la interfaz
-                    descripcion_completa,       # Descripción del campo + datos nutricionales
-                    fecha_actual_widget,        # Fecha automática actual
-                    hora_actual_widget,         # Hora automática actual
-                    usuario_id,                 # usuario_id
-                    archivo_binario             # archivo_bin
-                )
-                
-                messagebox.showinfo(
-                    "Éxito", 
-                    f"Tabla nutrimental exportada exitosamente:\n\n"
-                    f"📁 Archivo: {os.path.basename(filename)}\n"
-                    f"📂 Ubicación: {filename}\n"
-                    f"💾 Guardado en base de datos: ✓\n"
-                    f"👤 Usuario: {self.username}\n"
-                    f"📝 Nombre en BD: {nombre_actual}"
-                )
-                
+                try:
+                    # Crear el archivo Excel con formato mejorado
+                    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                        df.to_excel(writer, index=False, sheet_name="Tabla Nutrimental")
+                        
+                        # Obtener el workbook y worksheet para formato
+                        workbook = writer.book
+                        worksheet = writer.sheets["Tabla Nutrimental"]
+                        
+                        # Ajustar ancho de columnas
+                        worksheet.column_dimensions['A'].width = 30
+                        worksheet.column_dimensions['B'].width = 15
+                        worksheet.column_dimensions['C'].width = 15
+                    
+                    # Leer el archivo para guardarlo en la base de datos
+                    with open(filename, "rb") as f:
+                        archivo_binario = f.read()
+                    
+                    # Guardar en la base de datos
+                    from core.auth import agregar_historial
+                    usuario_id = self.get_usuario_id()
+                    
+                    if usuario_id is None:
+                        messagebox.showwarning("Advertencia", "No se pudo guardar en la base de datos: Usuario no válido")
+                        return
+                    
+                    # Crear descripción más detallada
+                    descripcion_completa = f"{descripcion_actual}\n\n"
+                    descripcion_completa += "DATOS NUTRICIONALES CALCULADOS:\n"
+                    descripcion_completa += f"- Proteína: {resultados['por_100g']['proteina']}g/100g\n"
+                    descripcion_completa += f"- Grasa total: {resultados['por_100g']['grasa_total']}g/100g\n"
+                    descripcion_completa += f"- Carbohidratos disponibles: {resultados['por_100g']['carbohidratos_disponibles']}g/100g\n"
+                    descripcion_completa += f"- Energía: {resultados['por_100g']['energia_kcal']} kcal/100g\n"
+                    descripcion_completa += f"- Tamaño de porción analizada: {self.ultimo_calculo['datos_entrada']['porcion']}g\n"
+                    descripcion_completa += f"Archivo Excel generado automáticamente: {os.path.basename(filename)}"
+                    
+                    # USAR VALORES ACTUALES DE LOS CAMPOS DE LA INTERFAZ
+                    agregar_historial(
+                        nombre_actual,              # Nombre del campo de la interfaz
+                        descripcion_completa,       # Descripción del campo + datos nutricionales
+                        fecha_actual_widget,        # Fecha automática actual
+                        hora_actual_widget,         # Hora automática actual
+                        usuario_id,                 # usuario_id
+                        archivo_binario             # archivo_bin
+                    )
+                    
+                    messagebox.showinfo(
+                        "Exportación Exitosa", 
+                        f"✅ Tabla nutrimental exportada correctamente:\n\n"
+                        f"📁 Archivo: {os.path.basename(filename)}\n"
+                        f"📂 Ubicación: {filename}\n"
+                        f"💾 Guardado en base de datos: ✓\n"
+                        f"👤 Usuario: {self.username}\n"
+                        f"📝 # de muestra: {nombre_actual}\n\n"
+                        f"Puedes encontrar este registro en tu historial."
+                    )
+                    
+                except PermissionError:
+                    messagebox.showerror("Error", "No tienes permisos para escribir en esa ubicación.\nIntenta guardar en otra carpeta.")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al crear el archivo Excel: {str(e)}")
+                    
             else:
                 messagebox.showinfo("Cancelado", "Exportación cancelada por el usuario.")
         
+        except ImportError:
+            messagebox.showerror("Error", "No se pudo importar pandas. Asegúrate de que esté instalado:\npip install pandas openpyxl")
         except Exception as e:
             messagebox.showerror("Error", f"Error al exportar: {str(e)}")
             import traceback

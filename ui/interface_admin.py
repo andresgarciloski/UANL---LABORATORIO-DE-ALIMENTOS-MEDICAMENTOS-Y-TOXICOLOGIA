@@ -41,11 +41,25 @@ class MainInterfaceAdmin(tk.Tk):
         self.geometry("1000x600")
         self.configure(bg="white")
         self.username = username
-        self.rol = rol  # Puedes usarlo si lo necesitas
+        self.rol = rol
 
-        self.menu_visible = True  # Estado del menú lateral
+        self.menu_visible = True
+        self.menu_frame = None  # Inicializar explícitamente
+
+        # Configurar protocolo de cierre
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.create_widgets()
+
+    def on_closing(self):
+        """Limpia recursos antes de cerrar"""
+        try:
+            if hasattr(self, "menu_frame") and self.menu_frame is not None:
+                self.menu_frame.destroy()
+        except:
+            pass
+        
+        self.destroy()
 
     def create_widgets(self):
         # Header
@@ -127,13 +141,19 @@ class MainInterfaceAdmin(tk.Tk):
     def create_side_menu(self):
         # Si ya existe, destrúyelo para evitar duplicados
         if hasattr(self, "menu_frame") and self.menu_frame is not None:
-            self.menu_frame.destroy()
+            try:
+                self.menu_frame.destroy()
+            except:
+                pass
 
-        # Crear menú lateral como Toplevel SIN transparencia
+        # Crear menú lateral como Toplevel mejorado
         self.menu_frame = tk.Toplevel(self)
         self.menu_frame.overrideredirect(True)
         self.menu_frame.attributes('-topmost', True)
-        self.menu_frame.configure(bg="#0B5394")  # Mismo color que el header
+        self.menu_frame.configure(bg="#0B5394")
+        
+        # Evitar que aparezca en la barra de tareas
+        self.menu_frame.transient(self)
 
         self.update_side_menu_geometry()
 
@@ -187,26 +207,48 @@ class MainInterfaceAdmin(tk.Tk):
         )
         close_btn.place(x=220, y=10, width=30, height=30)
 
-        # Mantener menú alineado al cambiar tamaño/mover ventana
-        self.bind("<Configure>", lambda e: self.update_side_menu_geometry() if self.menu_visible else None)
+        # Mantener menú alineado al cambiar tamaño/mover ventana - MEJORADO
+        self.bind("<Configure>", self._on_window_configure)
+        self.menu_frame.bind("<FocusOut>", lambda e: None)  # Evitar cierre accidental
+
+    def _on_window_configure(self, event):
+        """Maneja cambios en la ventana principal de manera optimizada"""
+        if event.widget == self and self.menu_visible and hasattr(self, "menu_frame"):
+            self.after_idle(self.update_side_menu_geometry)
 
     def update_side_menu_geometry(self):
-        # Calcula posición y tamaño para cubrir todo el lateral izquierdo, justo debajo del header
-        self.update_idletasks()
-        x = self.winfo_rootx()
-        y = self.winfo_rooty()
-        h = self.winfo_height()
-        header_height = 60  # Altura del banner superior
-        self.menu_frame.geometry(f"260x{h-header_height}+{x}+{y+header_height}")
+        """Actualiza la geometría del menú lateral de manera segura"""
+        if not hasattr(self, "menu_frame") or self.menu_frame is None:
+            return
+            
+        try:
+            # Calcula posición y tamaño para cubrir todo el lateral izquierdo
+            self.update_idletasks()
+            x = self.winfo_rootx()
+            y = self.winfo_rooty()
+            h = self.winfo_height()
+            header_height = 60  # Altura del banner superior
+            
+            # Verificar que la ventana esté visible y tenga dimensiones válidas
+            if h > header_height and x >= 0 and y >= 0:
+                self.menu_frame.geometry(f"260x{h-header_height}+{x}+{y+header_height}")
+        except Exception:
+            pass  # Ignorar errores durante transiciones
 
     def toggle_menu(self):
-        if hasattr(self, "menu_frame") and self.menu_frame is not None and self.menu_visible:
-            self.menu_frame.withdraw()
+        """Manejo mejorado del toggle del menú"""
+        try:
+            if hasattr(self, "menu_frame") and self.menu_frame is not None and self.menu_visible:
+                self.menu_frame.withdraw()
+                self.menu_visible = False
+            else:
+                self.create_side_menu()
+                if hasattr(self, "menu_frame") and self.menu_frame is not None:
+                    self.menu_frame.deiconify()
+                    self.menu_visible = True
+        except Exception:
             self.menu_visible = False
-        else:
             self.create_side_menu()
-            self.menu_frame.deiconify()
-            self.menu_visible = True
 
     def show_user_menu(self):
         # Crear ventana tipo popup personalizada dentro de la ventana principal
@@ -371,9 +413,12 @@ class MainInterfaceAdmin(tk.Tk):
             label.pack(pady=20)
 
     def show_users_table(self):
-        # Si ya existe el frame de la tabla, destrúyelo para evitar duplicados
-        if hasattr(self, "users_table_frame") and self.users_table_frame is not None:
-            self.users_table_frame.destroy()
+        # Limpiar contenido anterior de manera segura
+        for widget in self.content_frame.winfo_children():
+            try:
+                widget.destroy()
+            except:
+                pass
 
         # CAMBIO: Agregar Canvas y Scrollbar
         main_canvas = tk.Canvas(self.content_frame, bg="white")
@@ -391,9 +436,14 @@ class MainInterfaceAdmin(tk.Tk):
         # --- Botón agregar usuario (+) ---
         plus_path = os.path.join(os.path.dirname(__file__), "..", "img", "+.png")
         plus_path = os.path.abspath(plus_path)
-        plus_img = Image.open(plus_path).resize((24, 24), Image.LANCZOS)
-        plus_icon = ImageTk.PhotoImage(plus_img)
-        self.plus_icon = plus_icon  # Mantener referencia
+        
+        try:
+            plus_img = Image.open(plus_path).resize((24, 24), Image.LANCZOS)
+            plus_icon = ImageTk.PhotoImage(plus_img)
+            self.plus_icon = plus_icon  # Mantener referencia
+        except Exception:
+            # Fallback si no encuentra la imagen
+            plus_icon = None
 
         # CAMBIO: Agregar padding superior
         padding_frame = tk.Frame(self.users_table_frame, bg="white", height=30)
@@ -401,18 +451,20 @@ class MainInterfaceAdmin(tk.Tk):
 
         add_btn = tk.Button(
             self.users_table_frame,
-            image=self.plus_icon,
+            text="+" if plus_icon is None else "",
+            image=plus_icon if plus_icon else None,
             bg="white",
             bd=0,
             activebackground="#b3d1f7",
             cursor="hand2",
-            command=self.add_user_popup
+            command=self.add_user_popup,
+            font=("Segoe UI", 16, "bold") if plus_icon is None else None
         )
         add_btn.pack(anchor="w", padx=30, pady=(0, 8))
 
         # CAMBIO: Frame contenedor para la tabla con ancho completo y bordes
         table_frame = tk.Frame(self.users_table_frame, bg="white")
-        table_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))  # Borde de 20px
+        table_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         # Encabezados con diseño azul
         headers = ["ID", "Usuario", "Email", "Rol", "Editar", "Eliminar"]
@@ -425,21 +477,31 @@ class MainInterfaceAdmin(tk.Tk):
             )
             header_label.grid(row=0, column=col, sticky="nsew", padx=1, pady=1)
 
-        # Cargar imagen de lápiz y basura
-        lapiz_path = os.path.join(os.path.dirname(__file__), "..", "img", "lapiz.png")
-        lapiz_path = os.path.abspath(lapiz_path)
-        lapiz_img = Image.open(lapiz_path).resize((20, 20), Image.LANCZOS)
-        lapiz_icon = ImageTk.PhotoImage(lapiz_img)
-        self.lapiz_icon = lapiz_icon  # Mantener referencia
+        # Cargar imágenes con manejo de errores
+        try:
+            lapiz_path = os.path.join(os.path.dirname(__file__), "..", "img", "lapiz.png")
+            lapiz_path = os.path.abspath(lapiz_path)
+            lapiz_img = Image.open(lapiz_path).resize((20, 20), Image.LANCZOS)
+            lapiz_icon = ImageTk.PhotoImage(lapiz_img)
+            self.lapiz_icon = lapiz_icon
+        except Exception:
+            lapiz_icon = None
 
-        basura_path = os.path.join(os.path.dirname(__file__), "..", "img", "basura.png")
-        basura_path = os.path.abspath(basura_path)
-        basura_img = Image.open(basura_path).resize((20, 20), Image.LANCZOS)
-        basura_icon = ImageTk.PhotoImage(basura_img)
-        self.basura_icon = basura_icon  # Mantener referencia
+        try:
+            basura_path = os.path.join(os.path.dirname(__file__), "..", "img", "basura.png")
+            basura_path = os.path.abspath(basura_path)
+            basura_img = Image.open(basura_path).resize((20, 20), Image.LANCZOS)
+            basura_icon = ImageTk.PhotoImage(basura_img)
+            self.basura_icon = basura_icon
+        except Exception:
+            basura_icon = None
 
-        # Obtener usuarios de la base de datos
-        usuarios = obtener_usuarios()  # Debe regresar una lista de tuplas: (id, username, email, rol)
+        # Obtener usuarios de la base de datos con manejo de errores
+        try:
+            usuarios = obtener_usuarios()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudieron cargar los usuarios: {e}")
+            usuarios = []
 
         row_bg1 = "#e6f0fa"
         row_bg2 = "#f7fbff"
@@ -455,7 +517,8 @@ class MainInterfaceAdmin(tk.Tk):
 
             edit_btn = tk.Button(
                 table_frame,
-                image=self.lapiz_icon,
+                text="✏" if lapiz_icon is None else "",
+                image=lapiz_icon if lapiz_icon else None,
                 bg=bg,
                 bd=0,
                 activebackground="#b3d1f7",
@@ -466,7 +529,8 @@ class MainInterfaceAdmin(tk.Tk):
 
             delete_btn = tk.Button(
                 table_frame,
-                image=self.basura_icon,
+                text="🗑" if basura_icon is None else "",
+                image=basura_icon if basura_icon else None,
                 bg=bg,
                 bd=0,
                 activebackground="#f7bdbd",
@@ -476,17 +540,17 @@ class MainInterfaceAdmin(tk.Tk):
             delete_btn.grid(row=row, column=5, padx=8, pady=4, sticky="nsew")
 
         # CAMBIO: Hacer que las columnas se expandan proporcionalmente
-        table_frame.grid_columnconfigure(0, weight=1, minsize=60)   # ID - más pequeña
-        table_frame.grid_columnconfigure(1, weight=3, minsize=120)  # Usuario - más grande
-        table_frame.grid_columnconfigure(2, weight=4, minsize=180)  # Email - la más grande
-        table_frame.grid_columnconfigure(3, weight=2, minsize=80)   # Rol - mediana
-        table_frame.grid_columnconfigure(4, weight=1, minsize=60)   # Editar - pequeña
-        table_frame.grid_columnconfigure(5, weight=1, minsize=60)   # Eliminar - pequeña
+        table_frame.grid_columnconfigure(0, weight=1, minsize=60)
+        table_frame.grid_columnconfigure(1, weight=3, minsize=120)
+        table_frame.grid_columnconfigure(2, weight=4, minsize=180)
+        table_frame.grid_columnconfigure(3, weight=2, minsize=80)
+        table_frame.grid_columnconfigure(4, weight=1, minsize=60)
+        table_frame.grid_columnconfigure(5, weight=1, minsize=60)
 
         main_canvas.pack(side="left", fill="both", expand=True)
         main_scrollbar.pack(side="right", fill="y")
         
-        # NUEVO: Enlazar scroll del mouse
+        # Enlazar scroll del mouse
         bind_mousewheel(main_canvas, main_canvas)
 
     def edit_user_popup(self, user):
@@ -1233,7 +1297,7 @@ class MainInterfaceAdmin(tk.Tk):
                     try:
                         # Leer archivo binario si existe
                         archivo_bin = None
-                        if row["ArchivoNombre"] and row["ArchivoNombre"] != "":
+                        if pd.notna(row["ArchivoNombre"]) and row["ArchivoNombre"] != "":
                             try:
                                 archivo_bin = zf.read(row["ArchivoNombre"])
                                 archivos_importados += 1
@@ -1252,7 +1316,7 @@ class MainInterfaceAdmin(tk.Tk):
                         registros_importados += 1
                         
                     except Exception as e:
-                        print(f"Error importando registro {row['Id']}: {e}")
+                        print(f"Error importando registro {row.get('Id', 'N/A')}: {e}")
 
             messagebox.showinfo("Importar", f"Importación exitosa:\n\nRegistros importados: {registros_importados}\nArchivos importados: {archivos_importados}")
             
@@ -1266,6 +1330,13 @@ class MainInterfaceAdmin(tk.Tk):
         popup.configure(bg="white")
         popup.resizable(False, False)
         popup.grab_set()
+        
+        # Centrar popup
+        popup.transient(self)
+        popup.update_idletasks()
+        x = (popup.winfo_screenwidth() // 2) - (350 // 2)
+        y = (popup.winfo_screenheight() // 2) - (350 // 2)
+        popup.geometry(f"350x350+{x}+{y}")
 
         tk.Label(popup, text="Usuario:", font=("Segoe UI", 11), bg="white").pack(pady=(20, 5))
         username_entry = tk.Entry(popup, font=("Segoe UI", 11), width=25)
