@@ -1,1 +1,4 @@
 30.6.2025 - Agregar Filtro por Descripción en la pestaña de registro, cambiar "Nombre" por "# de muestra" en el apartado de registro. Y agregar filtro para exportar solo los registros que quiera el usuario. 
+
+11.7.2025 - Grasas Trans que el programa lo solicite por mg or 100g igual que el sodio, el calculo que lo haga igual que el de la grasa sencilla en lugar de gramos será miligramos. Azucares añadidios que los pida por % y que el calculo lo haga igual que para azucares sencillos. Si el sodio es menor a 5 mg se expresa como 0.
+Porciones por envase, agregar cuantas porciones hay en un envase.**
