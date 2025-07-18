@@ -17,10 +17,9 @@ class LoginWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("UANL FoodLab")
-        self.geometry("540x540")  # Tamaño más grande y cómodo
+        self.geometry("540x600")
         self.configure(bg="white")
         self.resizable(False, False)
-
         self.build_ui()
 
     def build_ui(self):
@@ -33,60 +32,90 @@ class LoginWindow(tk.Tk):
             text="Laboratorio de Alimentos - UANL",
             bg="#0B5394",
             fg="white",
-            font=("Segoe UI", 14, "bold")
+            font=("Segoe UI", 16, "bold")
         )
         title.pack(pady=15, side="left")
 
-        # Botón solo para admins (icono en la esquina superior derecha)
-        admin_img_path = os.path.join(os.path.dirname(__file__), "..", "img", "admin.png")
-        admin_img_path = os.path.abspath(admin_img_path)
-        admin_img = Image.open(admin_img_path).resize((28, 28), Image.LANCZOS)
-        self.admin_icon = ImageTk.PhotoImage(admin_img)
-        admin_btn = tk.Button(
-            header,
-            image=self.admin_icon,
-            bg="#0B5394",
-            bd=0,
-            activebackground="#073763",
-            cursor="hand2",
-            command=self.open_admin_login
-        )
-        admin_btn.pack(side="right", padx=18, pady=10)
+        # Botón admin con tooltip
+        try:
+            admin_img_path = os.path.join(os.path.dirname(__file__), "..", "img", "admin.png")
+            admin_img_path = os.path.abspath(admin_img_path)
+            admin_img = Image.open(admin_img_path).resize((28, 28), Image.LANCZOS)
+            self.admin_icon = ImageTk.PhotoImage(admin_img)
+            admin_btn = tk.Button(
+                header,
+                image=self.admin_icon,
+                bg="#0B5394",
+                bd=0,
+                activebackground="#073763",
+                cursor="hand2",
+                command=self.open_admin_login
+            )
+            admin_btn.pack(side="right", padx=18, pady=10)
 
-        # Imagen de Bruni centrada arriba del formulario, más grande y circular
-        img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
-        img_path = os.path.abspath(img_path)
-        bruni_img = Image.open(img_path).resize((130, 130), Image.LANCZOS)
-        mask = Image.new('L', (130, 130), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse((0, 0, 130, 130), fill=255)
-        bruni_img.putalpha(mask)
-        bruni_photo = ImageTk.PhotoImage(bruni_img)
-        img_label = tk.Label(self, image=bruni_photo, bg="white")
-        img_label.image = bruni_photo  # Mantener referencia
-        img_label.pack(pady=(15, 0))
+            # Tooltip
+            def show_tooltip(event):
+                self.tooltip = tk.Toplevel(self)
+                self.tooltip.overrideredirect(True)
+                self.tooltip.geometry(f"+{event.x_root+10}+{event.y_root+10}")
+                label = tk.Label(self.tooltip, text="Acceso administrador", bg="#0B5394", fg="white", font=("Segoe UI", 9), padx=8, pady=3)
+                label.pack()
+            def hide_tooltip(event):
+                if hasattr(self, 'tooltip') and self.tooltip:
+                    self.tooltip.destroy()
+                    self.tooltip = None
+            admin_btn.bind("<Enter>", show_tooltip)
+            admin_btn.bind("<Leave>", hide_tooltip)
+        except Exception:
+            admin_btn = tk.Button(
+                header,
+                text="Admin",
+                bg="#0B5394",
+                fg="white",
+                bd=0,
+                activebackground="#073763",
+                cursor="hand2",
+                command=self.open_admin_login
+            )
+            admin_btn.pack(side="right", padx=18, pady=10)
 
-        # Contenedor del formulario
+        # Imagen de Bruni circular y centrada
+        try:
+            img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
+            img_path = os.path.abspath(img_path)
+            bruni_img = Image.open(img_path).resize((130, 130), Image.LANCZOS)
+            mask = Image.new('L', (130, 130), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0, 130, 130), fill=255)
+            bruni_img.putalpha(mask)
+            bruni_photo = ImageTk.PhotoImage(bruni_img)
+            img_label = tk.Label(self, image=bruni_photo, bg="white")
+            img_label.image = bruni_photo
+            img_label.pack(pady=(25, 10))
+        except Exception:
+            img_label = tk.Label(self, text="🧪", font=("Segoe UI", 48), bg="white")
+            img_label.pack(pady=(25, 10))
+
+        # Formulario
         form_frame = tk.Frame(self, bg="white")
         form_frame.pack(pady=10)
 
-        tk.Label(form_frame, text="Usuario:", font=("Segoe UI", 11), bg="white").grid(row=0, column=0, sticky="e", padx=10, pady=10)
-        self.username_entry = tk.Entry(form_frame, font=("Segoe UI", 11), width=25)
-        self.username_entry.grid(row=0, column=1, padx=10)
+        tk.Label(form_frame, text="Usuario:", font=("Segoe UI", 12), bg="white").grid(row=0, column=0, sticky="e", padx=10, pady=10)
+        self.username_entry = tk.Entry(form_frame, font=("Segoe UI", 12), width=25)
+        self.username_entry.grid(row=0, column=1, padx=10, pady=10)
 
-        tk.Label(form_frame, text="Contraseña:", font=("Segoe UI", 11), bg="white").grid(row=1, column=0, sticky="e", padx=10, pady=10)
-        self.password_entry = tk.Entry(form_frame, show="*", font=("Segoe UI", 11), width=25)
-        self.password_entry.grid(row=1, column=1, padx=10)
+        tk.Label(form_frame, text="Contraseña:", font=("Segoe UI", 12), bg="white").grid(row=1, column=0, sticky="e", padx=10, pady=10)
+        self.password_entry = tk.Entry(form_frame, show="*", font=("Segoe UI", 12), width=25)
+        self.password_entry.grid(row=1, column=1, padx=10, pady=10)
 
-        # Frame para los botones debajo del formulario
+        # Botones
         btn_frame = tk.Frame(self, bg="white")
-        btn_frame.pack(pady=10)
+        btn_frame.pack(pady=15)
 
-        # Botón iniciar sesión (usuario normal o admin)
         login_btn = tk.Button(
             btn_frame,
             text="Iniciar Sesión",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 12, "bold"),
             bg="#0B5394",
             fg="white",
             activebackground="#073763",
@@ -95,13 +124,12 @@ class LoginWindow(tk.Tk):
             width=20,
             command=self.authenticate
         )
-        login_btn.pack(pady=(5, 12))  # Más espacio debajo
+        login_btn.pack(pady=(5, 12), fill="x")
 
-        # Botón registrarse (queda igual)
         register_btn = tk.Button(
             btn_frame,
             text="Registrarse",
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 11),
             bg="white",
             fg="#0B5394",
             activebackground="#e6f0fa",
@@ -110,7 +138,12 @@ class LoginWindow(tk.Tk):
             width=20,
             command=self.register_user
         )
-        register_btn.pack(pady=5)
+        register_btn.pack(pady=5, fill="x")
+
+        # Navegación por teclado
+        self.username_entry.bind('<Return>', lambda e: self.password_entry.focus())
+        self.password_entry.bind('<Return>', lambda e: self.authenticate())
+        self.username_entry.focus()
 
     def authenticate(self):
         username = self.username_entry.get()
@@ -173,13 +206,12 @@ class LoginWindow(tk.Tk):
             messagebox.showinfo("No disponible", "Función de registro no implementada.")
             return
 
-        # Crear ventana modal de registro
         reg_win = tk.Toplevel(self)
         reg_win.title("Registro de nuevo usuario")
         reg_win.geometry("350x300")
         reg_win.configure(bg="white")
         reg_win.resizable(False, False)
-        reg_win.grab_set()  # Hace modal la ventana
+        reg_win.grab_set()
 
         tk.Label(reg_win, text="Usuario:", font=("Segoe UI", 11), bg="white").pack(pady=(20, 5))
         username_entry = tk.Entry(reg_win, font=("Segoe UI", 11), width=25)
@@ -203,7 +235,6 @@ class LoginWindow(tk.Tk):
                 return
 
             try:
-                # El rol "usuario" debe ser asignado por defecto en la función crear_usuario del backend
                 crear_usuario(username, password, email)
                 messagebox.showinfo("Registro exitoso", "Usuario registrado correctamente. Ahora puedes iniciar sesión.", parent=reg_win)
                 reg_win.destroy()
