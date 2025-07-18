@@ -166,3 +166,21 @@ def crear_usuario(username, email, password, rol="usuario"):
     )
     conn.commit()
     conn.close()
+
+def obtener_historial_completo_admin():
+    """Obtener todo el historial para administradores"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo FROM Historial ORDER BY Id DESC")
+    historial = cursor.fetchall()
+    conn.close()
+    return [(row.Id, row.Nombre, row.Descripcion, row.Fecha, row.Hora, row.UsuarioId, row.Archivo) for row in historial]
+
+def obtener_username_por_id(user_id):
+    """Obtener nombre de usuario por ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT Username FROM Usuarios WHERE Id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result.Username if result else f"Usuario {user_id}"
