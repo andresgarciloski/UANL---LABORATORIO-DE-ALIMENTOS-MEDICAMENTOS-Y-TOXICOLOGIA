@@ -300,7 +300,16 @@ class NutrimentalModule:
             "por_100g": por_100g,
             "por_porcion": por_porcion
         }
-        
+
+        # Porciones por envase
+        porciones_envase = None
+        if "contenido_neto" in data and data["contenido_neto"] and "porcion" in data and data["porcion"]:
+            try:
+                porciones_envase = round(data["contenido_neto"] / data["porcion"])
+                resultados["porciones_envase"] = porciones_envase
+            except Exception:
+                resultados["porciones_envase"] = None
+
         # Por envase (si se especifica)
         if "contenido_neto" in data and data["contenido_neto"]:
             factor_cn = data["contenido_neto"] / 100
@@ -308,7 +317,6 @@ class NutrimentalModule:
                 "energia_kcal": round(por_100g["energia_kcal"] * factor_cn),
                 "energia_kj": round(por_100g["energia_kj"] * factor_cn)
             }
-    
         return resultados
 
     def _aplicar_regla_redondeo_sodio(self, valor):
@@ -327,7 +335,11 @@ class NutrimentalModule:
         
         texto = "TABLA NUTRIMENTAL MEXICANA\n"
         texto += "=" * 50 + "\n\n"
-        
+
+        # Porciones por envase
+        if "porciones_envase" in resultados and resultados["porciones_envase"] is not None:
+            texto += f"Porciones por envase: {resultados['porciones_envase']}\n\n"
+
         # Por 100g
         texto += "POR 100g/mL:\n"
         texto += "-" * 20 + "\n"
@@ -433,7 +445,11 @@ class NutrimentalModule:
             # Tabla nutrimental
             datos_excel.append(["TABLA NUTRIMENTAL MEXICANA", "Por 100g/mL", "Por Porción"])
             resultados = self.parent.ultimo_calculo["resultados"]
-            
+
+            # Porciones por envase
+            if "porciones_envase" in resultados and resultados["porciones_envase"] is not None:
+                datos_excel.append(["Porciones por envase", resultados["porciones_envase"], ""])
+
             for key in resultados["por_100g"].keys():
                 if key == "energia_kcal":
                     nombre = "Contenido energético (kcal)"
