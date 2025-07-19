@@ -3,6 +3,7 @@ from tkinter import messagebox, filedialog
 import datetime
 import os
 import pandas as pd
+from PIL import Image, ImageDraw, ImageTk
 from core.auth import agregar_historial
 from ui.base_interface import bind_mousewheel
 
@@ -11,28 +12,47 @@ class NutrimentalModule:
         self.parent = parent_window
 
     def show_nutrimental_section(self):
-        """Mostrar sección de tabla nutrimental"""
+        """Mostrar sección de tabla nutrimental con diseño moderno y profesional"""
         # Limpiar contenido
         for widget in self.parent.content_frame.winfo_children():
             widget.destroy()
 
+        # Encabezado azul elegante
+        header = tk.Frame(self.parent.content_frame, bg="#0B5394", height=70)
+        header.pack(fill="x")
+        try:
+            img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
+            img_path = os.path.abspath(img_path)
+            bruni_img = Image.open(img_path).resize((48, 48), Image.LANCZOS)
+            mask = Image.new('L', (48, 48), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0, 48, 48), fill=255)
+            bruni_img.putalpha(mask)
+            bruni_photo = ImageTk.PhotoImage(bruni_img)
+            icon_label = tk.Label(header, image=bruni_photo, bg="#0B5394")
+            icon_label.image = bruni_photo
+            icon_label.pack(side="left", padx=(18, 8), pady=10)
+        except Exception:
+            icon_label = tk.Label(header, text="", bg="#0B5394")
+            icon_label.pack(side="left", padx=(18, 8), pady=10)
+
         title = tk.Label(
-            self.parent.content_frame,
+            header,
             text="Tabla Nutrimental Mexicana",
             font=("Segoe UI", 20, "bold"),
-            bg="white",
-            fg="#0B5394"
+            bg="#0B5394",
+            fg="white"
         )
-        title.pack(pady=(30, 20))
+        title.pack(side="left", pady=15)
 
-        # Frame principal con scroll
-        main_frame = tk.Frame(self.parent.content_frame, bg="white")
-        main_frame.pack(expand=True, fill="both", padx=30, pady=20)
+        # Frame principal con fondo blanco y borde elegante
+        main_frame = tk.Frame(self.parent.content_frame, bg="#f4f8fc", bd=0)
+        main_frame.pack(expand=True, fill="both", padx=30, pady=(10, 30))
 
         # Canvas para scroll
-        canvas = tk.Canvas(main_frame, bg="white")
+        canvas = tk.Canvas(main_frame, bg="#f4f8fc", highlightthickness=0)
         scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="white")
+        scrollable_frame = tk.Frame(canvas, bg="#f4f8fc")
 
         scrollable_frame.bind(
             "<Configure>",
@@ -42,16 +62,25 @@ class NutrimentalModule:
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
+        # Agrupación visual: Datos básicos y nutricionales en dos columnas
+        fields_container = tk.Frame(scrollable_frame, bg="#f4f8fc")
+        fields_container.pack(fill="x", pady=(10, 0))
+
+        left_col = tk.Frame(fields_container, bg="#f4f8fc")
+        left_col.pack(side="left", fill="y", expand=True, padx=(0, 10))
+        right_col = tk.Frame(fields_container, bg="#f4f8fc")
+        right_col.pack(side="left", fill="y", expand=True, padx=(10, 0))
+
         # Campos básicos
-        self._create_basic_fields(scrollable_frame)
-        
+        self._create_basic_fields(left_col)
+
         # Datos nutricionales
-        self._create_nutrimental_fields(scrollable_frame)
-        
-        # Botones
+        self._create_nutrimental_fields(right_col)
+
+        # Botones con diseño moderno y agrupados
         self._create_buttons(scrollable_frame)
-        
-        # Resultados
+
+        # Resultados con borde y fondo claro, redondeado simulado
         self._create_results_area(scrollable_frame)
 
         canvas.pack(side="left", fill="both", expand=True)
@@ -59,32 +88,36 @@ class NutrimentalModule:
         bind_mousewheel(canvas, canvas)
 
     def _create_basic_fields(self, parent):
-        """Crear campos básicos"""
-        basic_frame = tk.LabelFrame(parent, text="Información Básica", font=("Segoe UI", 12, "bold"), bg="white", fg="#0B5394")
-        basic_frame.pack(fill="x", pady=(0, 20), padx=10)
+        """Crear campos básicos con estilo profesional"""
+        basic_frame = tk.LabelFrame(
+            parent,
+            text="Información Básica",
+            font=("Segoe UI", 12, "bold"),
+            bg="#ffffff",
+            fg="#0B5394",
+            bd=2,
+            relief="groove"
+        )
+        basic_frame.pack(fill="both", pady=(0, 20), padx=0, ipadx=8, ipady=8)
 
-        # # de muestra
-        tk.Label(basic_frame, text="# de muestra:", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=10, pady=5)
-        self.parent.nombre_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=40)
+        tk.Label(basic_frame, text="# de muestra:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        self.parent.nombre_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=28, relief="solid", bd=1)
         self.parent.nombre_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
-        # Descripción
-        tk.Label(basic_frame, text="Descripción:", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", padx=10, pady=5)
-        self.parent.descripcion_entry = tk.Text(basic_frame, font=("Segoe UI", 10), width=40, height=3)
+        tk.Label(basic_frame, text="Descripción:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=1, column=0, sticky="nw", padx=10, pady=5)
+        self.parent.descripcion_entry = tk.Text(basic_frame, font=("Segoe UI", 10), width=28, height=3, relief="solid", bd=1)
         self.parent.descripcion_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
 
-        # Fecha automática
-        tk.Label(basic_frame, text="Fecha:", bg="white", font=("Segoe UI", 10)).grid(row=2, column=0, sticky="w", padx=10, pady=5)
-        self.parent.fecha_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=20, state="readonly", bg="#f0f0f0")
+        tk.Label(basic_frame, text="Fecha:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=2, column=0, sticky="w", padx=10, pady=5)
+        self.parent.fecha_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=14, state="readonly", bg="#f0f0f0", relief="solid", bd=1)
         fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
         self.parent.fecha_entry.config(state="normal")
         self.parent.fecha_entry.insert(0, fecha_actual)
         self.parent.fecha_entry.config(state="readonly")
         self.parent.fecha_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
 
-        # Hora automática
-        tk.Label(basic_frame, text="Hora:", bg="white", font=("Segoe UI", 10)).grid(row=3, column=0, sticky="w", padx=10, pady=5)
-        self.parent.hora_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=20, state="readonly", bg="#f0f0f0")
+        tk.Label(basic_frame, text="Hora:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=3, column=0, sticky="w", padx=10, pady=5)
+        self.parent.hora_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=14, state="readonly", bg="#f0f0f0", relief="solid", bd=1)
         hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
         self.parent.hora_entry.config(state="normal")
         self.parent.hora_entry.insert(0, hora_actual)
@@ -94,51 +127,48 @@ class NutrimentalModule:
         basic_frame.grid_columnconfigure(1, weight=1)
 
     def _create_nutrimental_fields(self, parent):
-        """Crear campos nutricionales"""
-        nutri_frame = tk.LabelFrame(parent, text="Datos Nutricionales", font=("Segoe UI", 12, "bold"), bg="white", fg="#0B5394")
-        nutri_frame.pack(fill="x", pady=(0, 20), padx=10)
+        """Crear campos nutricionales agrupados y visualmente atractivos"""
+        nutri_frame = tk.LabelFrame(
+            parent,
+            text="Datos Nutricionales",
+            font=("Segoe UI", 12, "bold"),
+            bg="#ffffff",
+            fg="#0B5394",
+            bd=2,
+            relief="groove"
+        )
+        nutri_frame.pack(fill="both", pady=(0, 20), padx=0, ipadx=8, ipady=8)
 
-        # Variables para los campos nutricionales
         self.parent.nutri_vars = {}
         nutri_fields = [
-            ("humedad", "Humedad (%)", ""),
-            ("cenizas", "Cenizas (%)", ""),
-            ("proteina", "Proteína (%)", ""),
-            ("grasa_total", "Grasa total (%)", ""),
-            ("grasa_trans", "Grasas Trans (mg/100g)", ""),
-            ("fibra_dietetica", "Fibra dietética (%)", ""),
-            ("azucares", "Azúcares totales (%)", ""),
-            ("azucares_anadidos", "Azúcares añadidos (%)", ""),
-            ("sodio", "Sodio (mg/100g)", ""),
-            ("acidos_grasos_saturados", "Ácidos grasos saturados (%)", ""),
-            ("porcion", "Tamaño de porción (g o mL)", ""),
-            ("contenido_neto", "Contenido neto del envase (opcional)", "")
+            ("humedad", "Humedad (%)"),
+            ("cenizas", "Cenizas (%)"),
+            ("proteina", "Proteína (%)"),
+            ("grasa_total", "Grasa total (%)"),
+            ("grasa_trans", "Grasas trans (mg/100g)"),
+            ("fibra_dietetica", "Fibra dietética (%)"),
+            ("azucares", "Azúcares totales (%)"),
+            ("azucares_anadidos", "Azúcares añadidos (%)"),
+            ("sodio", "Sodio (mg/100g)"),
+            ("acidos_grasos_saturados", "Ácidos grasos saturados (%)"),
+            ("porcion", "Tamaño de porción (g o mL)"),
+            ("contenido_neto", "Contenido neto del envase (opcional)")
         ]
 
-        row = 0
-        col = 0
-        for key, label, placeholder in nutri_fields:
-            tk.Label(nutri_frame, text=label + ":", bg="white", font=("Segoe UI", 10)).grid(row=row, column=col*2, sticky="w", padx=10, pady=5)
-            entry = tk.Entry(nutri_frame, font=("Segoe UI", 10), width=15)
-            if placeholder:
-                entry.insert(0, placeholder)
-            entry.grid(row=row, column=col*2+1, padx=10, pady=5, sticky="ew")
+        for i, (key, label) in enumerate(nutri_fields):
+            tk.Label(nutri_frame, text=label, bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=i, column=0, sticky="w", padx=10, pady=5)
+            entry = tk.Entry(nutri_frame, font=("Segoe UI", 10), width=16, relief="solid", bd=1)
+            entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
             self.parent.nutri_vars[key] = entry
-            
-            col += 1
-            if col >= 2:
-                col = 0
-                row += 1
 
         nutri_frame.grid_columnconfigure(1, weight=1)
-        nutri_frame.grid_columnconfigure(3, weight=1)
 
     def _create_buttons(self, parent):
-        """Crear botones"""
-        buttons_frame = tk.Frame(parent, bg="white")
-        buttons_frame.pack(fill="x", pady=20, padx=10)
+        """Botones con diseño moderno y agrupados"""
+        buttons_frame = tk.Frame(parent, bg="#f4f8fc")
+        buttons_frame.pack(fill="x", pady=10, padx=10)
 
-        tk.Button(
+        calc_btn = tk.Button(
             buttons_frame,
             text="Calcular Tabla Nutrimental",
             command=self.calcular_tabla_nutrimental,
@@ -148,10 +178,13 @@ class NutrimentalModule:
             relief="flat",
             padx=20,
             pady=10,
-            cursor="hand2"
-        ).pack(side="left", padx=(0, 10))
+            cursor="hand2",
+            activebackground="#073763",
+            activeforeground="white"
+        )
+        calc_btn.pack(side="left", padx=(0, 10), ipadx=8, ipady=2)
 
-        tk.Button(
+        export_btn = tk.Button(
             buttons_frame,
             text="Exportar a Excel",
             command=self.exportar_nutrimental_excel,
@@ -161,15 +194,33 @@ class NutrimentalModule:
             relief="flat",
             padx=20,
             pady=10,
-            cursor="hand2"
-        ).pack(side="left", padx=10)
+            cursor="hand2",
+            activebackground="#218838",
+            activeforeground="white"
+        )
+        export_btn.pack(side="left", padx=10, ipadx=8, ipady=2)
 
     def _create_results_area(self, parent):
-        """Crear área de resultados"""
-        self.parent.resultados_frame = tk.LabelFrame(parent, text="Resultados", font=("Segoe UI", 12, "bold"), bg="white", fg="#0B5394")
-        self.parent.resultados_frame.pack(fill="both", expand=True, pady=(20, 0), padx=10)
+        """Área de resultados con diseño visual atractivo"""
+        self.parent.resultados_frame = tk.LabelFrame(
+            parent,
+            text="Resultados",
+            font=("Segoe UI", 12, "bold"),
+            bg="#ffffff",
+            fg="#0B5394",
+            bd=2,
+            relief="groove"
+        )
+        self.parent.resultados_frame.pack(fill="both", expand=True, pady=(20, 0), padx=10, ipadx=8, ipady=8)
 
-        self.parent.resultados_text = tk.Text(self.parent.resultados_frame, font=("Courier New", 10), bg="#f8f9fa", state="disabled")
+        self.parent.resultados_text = tk.Text(
+            self.parent.resultados_frame,
+            font=("Courier New", 10),
+            bg="#f8f9fa",
+            state="disabled",
+            relief="solid",
+            bd=1
+        )
         resultados_scroll = tk.Scrollbar(self.parent.resultados_frame, orient="vertical", command=self.parent.resultados_text.yview)
         self.parent.resultados_text.configure(yscrollcommand=resultados_scroll.set)
 
@@ -351,7 +402,9 @@ class NutrimentalModule:
             elif key == "sodio":
                 texto += f"Sodio: {value} mg\n"
             elif key == "grasa_trans":
-                texto += f"Grasas Trans: {value} mg\n"
+                texto += f"Grasas trans: {value} mg\n"  # Modificado
+            elif key == "azucares_anadidos":
+                texto += f"Azúcares añadidos: {value} g\n"  # Modificado
             else:
                 texto += f"{key.replace('_', ' ').title()}: {value} g\n"
         texto += "\n"
@@ -458,10 +511,11 @@ class NutrimentalModule:
                 elif key == "sodio":
                     nombre = "Sodio (mg)"
                 elif key == "grasa_trans":
-                    nombre = "Grasas Trans (mg)"
+                    nombre = "Grasas trans (mg)"  # Modificado
+                elif key == "azucares_anadidos":
+                    nombre = "Azúcares añadidos (g)"  # Modificado
                 else:
                     nombre = f"{key.replace('_', ' ').title()} (g)"
-                    
                 valor_100g = resultados["por_100g"][key]
                 valor_porcion = resultados["por_porcion"][key]
                 datos_excel.append([nombre, valor_100g, valor_porcion])
