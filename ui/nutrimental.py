@@ -12,42 +12,13 @@ class NutrimentalModule:
         self.parent = parent_window
 
     def show_nutrimental_section(self):
-        """Mostrar sección de tabla nutrimental con diseño moderno y profesional"""
-        # Limpiar contenido
+        """Mostrar sección de tabla nutrimental con diseño moderno y profesional mejorado"""
         for widget in self.parent.content_frame.winfo_children():
             widget.destroy()
 
-        # Encabezado azul elegante
-        header = tk.Frame(self.parent.content_frame, bg="#0B5394", height=70)
-        header.pack(fill="x")
-        try:
-            img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
-            img_path = os.path.abspath(img_path)
-            bruni_img = Image.open(img_path).resize((48, 48), Image.LANCZOS)
-            mask = Image.new('L', (48, 48), 0)
-            draw = ImageDraw.Draw(mask)
-            draw.ellipse((0, 0, 48, 48), fill=255)
-            bruni_img.putalpha(mask)
-            bruni_photo = ImageTk.PhotoImage(bruni_img)
-            icon_label = tk.Label(header, image=bruni_photo, bg="#0B5394")
-            icon_label.image = bruni_photo
-            icon_label.pack(side="left", padx=(18, 8), pady=10)
-        except Exception:
-            icon_label = tk.Label(header, text="", bg="#0B5394")
-            icon_label.pack(side="left", padx=(18, 8), pady=10)
-
-        title = tk.Label(
-            header,
-            text="Tabla Nutrimental Mexicana",
-            font=("Segoe UI", 20, "bold"),
-            bg="#0B5394",
-            fg="white"
-        )
-        title.pack(side="left", pady=15)
-
         # Frame principal con fondo blanco y borde elegante
         main_frame = tk.Frame(self.parent.content_frame, bg="#f4f8fc", bd=0)
-        main_frame.pack(expand=True, fill="both", padx=30, pady=(10, 30))
+        main_frame.pack(expand=True, fill="both", padx=20, pady=(5, 20))
 
         # Canvas para scroll
         canvas = tk.Canvas(main_frame, bg="#f4f8fc", highlightthickness=0)
@@ -62,82 +33,102 @@ class NutrimentalModule:
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Agrupación visual: Datos básicos y nutricionales en dos columnas
-        fields_container = tk.Frame(scrollable_frame, bg="#f4f8fc")
-        fields_container.pack(fill="x", pady=(10, 0))
+        # Configuración de columnas para que se adapten al ancho
+        scrollable_frame.grid_columnconfigure(0, weight=1, minsize=220)
+        scrollable_frame.grid_columnconfigure(1, weight=1, minsize=280)
+        scrollable_frame.grid_columnconfigure(2, weight=2, minsize=300)
+        scrollable_frame.grid_rowconfigure(0, weight=1)
 
-        left_col = tk.Frame(fields_container, bg="#f4f8fc")
-        left_col.pack(side="left", fill="y", expand=True, padx=(0, 10))
-        right_col = tk.Frame(fields_container, bg="#f4f8fc")
-        right_col.pack(side="left", fill="y", expand=True, padx=(10, 0))
+        # Usar grid para los tres recuadros principales
+        left_col = tk.Frame(scrollable_frame, bg="#f4f8fc")
+        center_col = tk.Frame(scrollable_frame, bg="#f4f8fc")
+        right_col = tk.Frame(scrollable_frame, bg="#f4f8fc")
 
-        # Campos básicos
+        left_col.grid(row=0, column=0, sticky="nsew", padx=(5, 5), pady=5)
+        center_col.grid(row=0, column=1, sticky="nsew", padx=(5, 5), pady=5)
+        right_col.grid(row=0, column=2, sticky="nsew", padx=(5, 5), pady=5)
+
         self._create_basic_fields(left_col)
+        self._create_nutrimental_fields(center_col)
+        self._create_results_area(right_col)
 
-        # Datos nutricionales
-        self._create_nutrimental_fields(right_col)
-
-        # Botones con diseño moderno y agrupados
-        self._create_buttons(scrollable_frame)
-
-        # Resultados con borde y fondo claro, redondeado simulado
-        self._create_results_area(scrollable_frame)
+        # Botones debajo de los recuadros, ocupando todo el ancho
+        buttons_frame = tk.Frame(scrollable_frame, bg="#f4f8fc")
+        buttons_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10, 10))
+        
+        # Centrar botones
+        buttons_container = tk.Frame(buttons_frame, bg="#f4f8fc")
+        buttons_container.pack(expand=True)
+        self._create_buttons(buttons_container)
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         bind_mousewheel(canvas, canvas)
+
+        # Actualizar scroll cuando cambie el tamaño de la ventana
+        def on_canvas_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            # Ajustar ancho del frame scrollable al ancho del canvas
+            canvas_width = event.width
+            canvas.itemconfig(canvas.create_window((0, 0), window=scrollable_frame, anchor="nw"), width=canvas_width)
+
+        canvas.bind("<Configure>", on_canvas_configure)
 
     def _create_basic_fields(self, parent):
         """Crear campos básicos con estilo profesional"""
         basic_frame = tk.LabelFrame(
             parent,
             text="Información Básica",
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 11, "bold"),
             bg="#ffffff",
             fg="#0B5394",
             bd=2,
             relief="groove"
         )
-        basic_frame.pack(fill="both", pady=(0, 20), padx=0, ipadx=8, ipady=8)
+        basic_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
 
-        tk.Label(basic_frame, text="# de muestra:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=0, column=0, sticky="w", padx=10, pady=5)
-        self.parent.nombre_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=28, relief="solid", bd=1)
-        self.parent.nombre_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        # Configurar grid para expandir
+        basic_frame.grid_columnconfigure(1, weight=1)
 
-        tk.Label(basic_frame, text="Descripción:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=1, column=0, sticky="nw", padx=10, pady=5)
-        self.parent.descripcion_entry = tk.Text(basic_frame, font=("Segoe UI", 10), width=28, height=3, relief="solid", bd=1)
-        self.parent.descripcion_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+        tk.Label(basic_frame, text="# de muestra:", bg="#ffffff", font=("Segoe UI", 9, "bold"), fg="#0B5394").grid(row=0, column=0, sticky="w", padx=8, pady=4)
+        self.parent.nombre_entry = tk.Entry(basic_frame, font=("Segoe UI", 9), relief="solid", bd=1)
+        self.parent.nombre_entry.grid(row=0, column=1, padx=8, pady=4, sticky="ew")
 
-        tk.Label(basic_frame, text="Fecha:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=2, column=0, sticky="w", padx=10, pady=5)
-        self.parent.fecha_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=14, state="readonly", bg="#f0f0f0", relief="solid", bd=1)
+        tk.Label(basic_frame, text="Descripción:", bg="#ffffff", font=("Segoe UI", 9, "bold"), fg="#0B5394").grid(row=1, column=0, sticky="nw", padx=8, pady=4)
+        self.parent.descripcion_entry = tk.Text(basic_frame, font=("Segoe UI", 9), height=3, relief="solid", bd=1)
+        self.parent.descripcion_entry.grid(row=1, column=1, padx=8, pady=4, sticky="ew")
+
+        tk.Label(basic_frame, text="Fecha:", bg="#ffffff", font=("Segoe UI", 9, "bold"), fg="#0B5394").grid(row=2, column=0, sticky="w", padx=8, pady=4)
+        self.parent.fecha_entry = tk.Entry(basic_frame, font=("Segoe UI", 9), state="readonly", bg="#f0f0f0", relief="solid", bd=1)
         fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
         self.parent.fecha_entry.config(state="normal")
         self.parent.fecha_entry.insert(0, fecha_actual)
         self.parent.fecha_entry.config(state="readonly")
-        self.parent.fecha_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        self.parent.fecha_entry.grid(row=2, column=1, padx=8, pady=4, sticky="ew")
 
-        tk.Label(basic_frame, text="Hora:", bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=3, column=0, sticky="w", padx=10, pady=5)
-        self.parent.hora_entry = tk.Entry(basic_frame, font=("Segoe UI", 10), width=14, state="readonly", bg="#f0f0f0", relief="solid", bd=1)
+        tk.Label(basic_frame, text="Hora:", bg="#ffffff", font=("Segoe UI", 9, "bold"), fg="#0B5394").grid(row=3, column=0, sticky="w", padx=8, pady=4)
+        self.parent.hora_entry = tk.Entry(basic_frame, font=("Segoe UI", 9), state="readonly", bg="#f0f0f0", relief="solid", bd=1)
         hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
         self.parent.hora_entry.config(state="normal")
         self.parent.hora_entry.insert(0, hora_actual)
         self.parent.hora_entry.config(state="readonly")
-        self.parent.hora_entry.grid(row=3, column=1, padx=10, pady=5, sticky="w")
-
-        basic_frame.grid_columnconfigure(1, weight=1)
+        self.parent.hora_entry.grid(row=3, column=1, padx=8, pady=4, sticky="ew")
 
     def _create_nutrimental_fields(self, parent):
         """Crear campos nutricionales agrupados y visualmente atractivos"""
         nutri_frame = tk.LabelFrame(
             parent,
             text="Datos Nutricionales",
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 11, "bold"),
             bg="#ffffff",
             fg="#0B5394",
             bd=2,
             relief="groove"
         )
-        nutri_frame.pack(fill="both", pady=(0, 20), padx=0, ipadx=8, ipady=8)
+        nutri_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
+
+        # Configurar grid para expandir
+        nutri_frame.grid_columnconfigure(1, weight=1)
 
         self.parent.nutri_vars = {}
         nutri_fields = [
@@ -156,76 +147,72 @@ class NutrimentalModule:
         ]
 
         for i, (key, label) in enumerate(nutri_fields):
-            tk.Label(nutri_frame, text=label, bg="#ffffff", font=("Segoe UI", 10, "bold"), fg="#0B5394").grid(row=i, column=0, sticky="w", padx=10, pady=5)
-            entry = tk.Entry(nutri_frame, font=("Segoe UI", 10), width=16, relief="solid", bd=1)
-            entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
+            tk.Label(nutri_frame, text=label, bg="#ffffff", font=("Segoe UI", 9, "bold"), fg="#0B5394").grid(row=i, column=0, sticky="w", padx=8, pady=3)
+            entry = tk.Entry(nutri_frame, font=("Segoe UI", 9), relief="solid", bd=1)
+            entry.grid(row=i, column=1, padx=8, pady=3, sticky="ew")
             self.parent.nutri_vars[key] = entry
-
-        nutri_frame.grid_columnconfigure(1, weight=1)
-
-    def _create_buttons(self, parent):
-        """Botones con diseño moderno y agrupados"""
-        buttons_frame = tk.Frame(parent, bg="#f4f8fc")
-        buttons_frame.pack(fill="x", pady=10, padx=10)
-
-        calc_btn = tk.Button(
-            buttons_frame,
-            text="Calcular Tabla Nutrimental",
-            command=self.calcular_tabla_nutrimental,
-            bg="#0B5394",
-            fg="white",
-            font=("Segoe UI", 12, "bold"),
-            relief="flat",
-            padx=20,
-            pady=10,
-            cursor="hand2",
-            activebackground="#073763",
-            activeforeground="white"
-        )
-        calc_btn.pack(side="left", padx=(0, 10), ipadx=8, ipady=2)
-
-        export_btn = tk.Button(
-            buttons_frame,
-            text="Exportar a Excel",
-            command=self.exportar_nutrimental_excel,
-            bg="#28a745",
-            fg="white",
-            font=("Segoe UI", 12, "bold"),
-            relief="flat",
-            padx=20,
-            pady=10,
-            cursor="hand2",
-            activebackground="#218838",
-            activeforeground="white"
-        )
-        export_btn.pack(side="left", padx=10, ipadx=8, ipady=2)
 
     def _create_results_area(self, parent):
         """Área de resultados con diseño visual atractivo"""
         self.parent.resultados_frame = tk.LabelFrame(
             parent,
             text="Resultados",
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 11, "bold"),
             bg="#ffffff",
             fg="#0B5394",
             bd=2,
             relief="groove"
         )
-        self.parent.resultados_frame.pack(fill="both", expand=True, pady=(20, 0), padx=10, ipadx=8, ipady=8)
+        self.parent.resultados_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
 
         self.parent.resultados_text = tk.Text(
             self.parent.resultados_frame,
-            font=("Courier New", 10),
+            font=("Courier New", 9),
             bg="#f8f9fa",
             state="disabled",
             relief="solid",
-            bd=1
+            bd=1,
+            wrap="word"
         )
         resultados_scroll = tk.Scrollbar(self.parent.resultados_frame, orient="vertical", command=self.parent.resultados_text.yview)
         self.parent.resultados_text.configure(yscrollcommand=resultados_scroll.set)
 
-        self.parent.resultados_text.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-        resultados_scroll.pack(side="right", fill="y", pady=10)
+        self.parent.resultados_text.pack(side="left", fill="both", expand=True, padx=8, pady=8)
+        resultados_scroll.pack(side="right", fill="y", pady=8)
+
+    def _create_buttons(self, parent):
+        """Botones con diseño moderno y agrupados"""
+        calc_btn = tk.Button(
+            parent,
+            text="Calcular Tabla Nutrimental",
+            command=self.calcular_tabla_nutrimental,
+            bg="#0B5394",
+            fg="white",
+            font=("Segoe UI", 11, "bold"),
+            relief="flat",
+            padx=15,
+            pady=8,
+            cursor="hand2",
+            activebackground="#073763",
+            activeforeground="white"
+        )
+        calc_btn.pack(side="left", padx=(0, 10))
+
+        export_btn = tk.Button(
+            parent,
+            text="Exportar a Excel",
+            command=self.exportar_nutrimental_excel,
+            bg="#28a745",
+            fg="white",
+            font=("Segoe UI", 11, "bold"),
+            relief="flat",
+            padx=15,
+            pady=8,
+            cursor="hand2",
+            activebackground="#218838",
+            activeforeground="white"
+        )
+        export_btn.pack(side="left", padx=10)
 
     def calcular_tabla_nutrimental(self):
         """Calcular tabla nutrimental"""
@@ -274,168 +261,205 @@ class NutrimentalModule:
         except Exception as e:
             messagebox.showerror("Error", f"Error en el cálculo: {str(e)}")
 
-    def _calcular_nutrimental(self, data):
-        """Realizar cálculos nutricionales"""
-        # No redondear los valores de entrada - mantener decimales para cálculos
-        proteina = data["proteina"]
-        grasa_total = data["grasa_total"]
-        azucares = data["azucares"]
-        azucares_anadidos = data["azucares_anadidos"]
-        fibra_dietetica = data["fibra_dietetica"]
-        
-        # Cálculos derivados
-        grasa_saturada = grasa_total * (data["acidos_grasos_saturados"] / 100)
-        grasa_trans_g = data["grasa_trans"] / 1000  # Convertir mg a g para cálculos
-        
-        # Hidratos de carbono totales
-        hidratos_carbono_totales = 100 - (data["humedad"] + data["cenizas"] + proteina + grasa_total)
-        
-        # Carbohidratos disponibles
-        carbohidratos_disponibles = hidratos_carbono_totales - fibra_dietetica
-        
-        # Por 100g
-        por_100g = {
-            "proteina": round(proteina),
-            "grasa_total": round(grasa_total),
-            "grasa_saturada": round(grasa_saturada),
-            "grasa_trans": self._aplicar_regla_redondeo_sodio(data["grasa_trans"]),
-            "carbohidratos_disponibles": round(carbohidratos_disponibles),
-            "azucares": round(azucares),
-            "azucares_anadidos": round(azucares_anadidos),
-            "fibra_dietetica": round(fibra_dietetica),
-            "sodio": self._aplicar_regla_redondeo_sodio(data["sodio"]),
-            "energia_kcal": 0,
-            "energia_kj": 0
-        }
-        
-        # Calcular energía
-        energia_kcal_100g = (por_100g["proteina"] + por_100g["carbohidratos_disponibles"]) * 4 + por_100g["grasa_total"] * 9
-        energia_kj_100g = (por_100g["proteina"] + por_100g["carbohidratos_disponibles"]) * 17 + por_100g["grasa_total"] * 37
-        
-        por_100g["energia_kcal"] = round(energia_kcal_100g)
-        por_100g["energia_kj"] = round(energia_kj_100g)
-        
-        # Por porción
-        proteina_porcion = (proteina * data["porcion"]) / 100
-        grasa_total_porcion = (grasa_total * data["porcion"]) / 100
-        grasa_saturada_porcion = (grasa_saturada * data["porcion"]) / 100
-        grasa_trans_porcion = (data["grasa_trans"] * data["porcion"]) / 100
-        carbohidratos_disponibles_porcion = (carbohidratos_disponibles * data["porcion"]) / 100
-        azucares_porcion = (azucares * data["porcion"]) / 100
-        azucares_anadidos_porcion = (azucares_anadidos * data["porcion"]) / 100
-        fibra_dietetica_porcion = (fibra_dietetica * data["porcion"]) / 100
-        sodio_porcion = (data["sodio"] * data["porcion"]) / 100
-        
-        por_porcion = {
-            "proteina": round(proteina_porcion),
-            "grasa_total": round(grasa_total_porcion),
-            "grasa_saturada": round(grasa_saturada_porcion),
-            "grasa_trans": self._aplicar_regla_redondeo_sodio(grasa_trans_porcion),
-            "carbohidratos_disponibles": round(carbohidratos_disponibles_porcion),
-            "azucares": round(azucares_porcion),
-            "azucares_anadidos": round(azucares_anadidos_porcion),
-            "fibra_dietetica": round(fibra_dietetica_porcion),
-            "sodio": self._aplicar_regla_redondeo_sodio(sodio_porcion),
-            "energia_kcal": 0,
-            "energia_kj": 0
-        }
-        
-        # Calcular energía por porción
-        energia_kcal_porcion = (por_porcion["proteina"] + por_porcion["carbohidratos_disponibles"]) * 4 + por_porcion["grasa_total"] * 9
-        energia_kj_porcion = (por_porcion["proteina"] + por_porcion["carbohidratos_disponibles"]) * 17 + por_porcion["grasa_total"] * 37
-        
-        por_porcion["energia_kcal"] = round(energia_kcal_porcion)
-        por_porcion["energia_kj"] = round(energia_kj_porcion)
-        
-        resultados = {
-            "por_100g": por_100g,
-            "por_porcion": por_porcion
-        }
+    def _aplicar_redondeo_nutrientes(self, valor):
+        """Aplicar reglas de redondeo para nutrientes en gramos según NOM-051"""
+        if valor < 0.5:
+            return 0
+        elif valor <= 5:
+            return round(valor * 2) / 2  # Redondear a 0.5g más cercano
+        else:
+            return round(valor)  # Redondear a gramo entero
 
-        # Porciones por envase
-        porciones_envase = None
-        if "contenido_neto" in data and data["contenido_neto"] and "porcion" in data and data["porcion"]:
-            try:
-                porciones_envase = round(data["contenido_neto"] / data["porcion"])
-                resultados["porciones_envase"] = porciones_envase
-            except Exception:
-                resultados["porciones_envase"] = None
-
-        # Por envase (si se especifica)
-        if "contenido_neto" in data and data["contenido_neto"]:
-            factor_cn = data["contenido_neto"] / 100
-            resultados["por_envase"] = {
-                "energia_kcal": round(por_100g["energia_kcal"] * factor_cn),
-                "energia_kj": round(por_100g["energia_kj"] * factor_cn)
-            }
-        return resultados
-
-    def _aplicar_regla_redondeo_sodio(self, valor):
-        """Aplicar reglas de redondeo para sodio y grasas trans"""
+    def _aplicar_redondeo_energia(self, valor):
+        """Aplicar reglas de redondeo para energía según NOM-051"""
         if valor < 5:
             return 0
-        elif valor <= 140:
-            return round(valor / 5) * 5
+        elif valor <= 50:
+            return round(valor / 5) * 5  # Redondear a múltiplos de 5
         else:
-            return round(valor / 10) * 10
+            return round(valor / 10) * 10  # Redondear a múltiplos de 10
+
+    def _aplicar_regla_redondeo_sodio(self, valor):
+        """
+        Redondeo oficial para sodio y grasas trans (mg) según NOM-051:
+        - < 5 mg: reportar 0
+        - 5 a < 140 mg: redondear al múltiplo de 5 mg más cercano
+        - >= 140 mg: redondear al múltiplo de 10 mg más cercano
+        """
+        if valor < 5:
+            return 0
+        elif valor < 140:
+            return int(round(valor / 5) * 5)
+        else:
+            return int(round(valor / 10) * 10)
+
+    def _calcular_nutrimental(self, data):
+        """Cálculo nutrimental conforme NOM-051 y reglas del archivo info.txt"""
+
+        # 1. Redondeo matemático a entero para los valores base (NO DECIMALES)
+        proteina_100g = int(round(data["proteina"]))
+        grasa_total_100g = int(round(data["grasa_total"]))
+        fibra_dietetica_100g = int(round(data["fibra_dietetica"]))
+        azucares_100g = int(round(data["azucares"]))
+        azucares_anadidos_100g = int(round(data["azucares_anadidos"]))
+
+        # 2. Grasa saturada (redondeo matemático a entero)
+        grasa_saturada_100g = int(round(grasa_total_100g * (data["acidos_grasos_saturados"] / 100)))
+
+        # 3. Hidratos de carbono totales y disponibles
+        hidratos_carbono_totales_100g = 100 - (data["humedad"] + data["cenizas"] + proteina_100g + grasa_total_100g)
+        hidratos_carbono_totales_100g = max(0, int(round(hidratos_carbono_totales_100g)))
+        carbohidratos_disponibles_100g = hidratos_carbono_totales_100g - fibra_dietetica_100g
+        carbohidratos_disponibles_100g = max(0, int(round(carbohidratos_disponibles_100g)))
+
+        # 4. Sodio y grasas trans (mg/100g), redondeo NOM-051, NO DECIMALES
+        sodio_100g = self._aplicar_regla_redondeo_sodio(data["sodio"])
+        grasa_trans_100g = self._aplicar_regla_redondeo_sodio(data["grasa_trans"])
+        grasa_trans_porcion = self._aplicar_regla_redondeo_sodio(data["grasa_trans"] * data["porcion"] / 100)
+
+        # 5. Energía por 100g (usar valores ya redondeados)
+        energia_kcal_100g = int(round((proteina_100g + carbohidratos_disponibles_100g) * 4 + grasa_total_100g * 9))
+        energia_kj_100g = int(round((proteina_100g + carbohidratos_disponibles_100g) * 17 + grasa_total_100g * 37))
+
+        # 6. Por porción (regla de 3, usando valores ya redondeados de 100g, luego redondear a entero)
+        porcion = data["porcion"]
+        proteina_porcion = int(round(proteina_100g * porcion / 100))
+        grasa_total_porcion = int(round(grasa_total_100g * porcion / 100))
+        grasa_saturada_porcion = int(round(grasa_saturada_100g * porcion / 100))
+        fibra_dietetica_porcion = int(round(fibra_dietetica_100g * porcion / 100))
+        
+        # Redondeo para azúcares y azúcares añadidos por porción
+        azucares_porcion = int(round(data["azucares"] * porcion / 100))
+        if azucares_porcion < 1:
+            azucares_porcion = 0
+
+        azucares_anadidos_porcion = int(round(data["azucares_anadidos"] * porcion / 100))
+        if azucares_anadidos_porcion < 1:
+            azucares_anadidos_porcion = 0
+            
+        carbohidratos_disponibles_porcion = int(round(carbohidratos_disponibles_100g * porcion / 100))
+        sodio_porcion = self._aplicar_regla_redondeo_sodio(sodio_100g * porcion / 100)
+        grasa_trans_porcion = self._aplicar_regla_redondeo_sodio(grasa_trans_100g * porcion / 100)
+
+        # Energía por porción (usar valores ya redondeados de porción)
+        energia_kcal_porcion = int(round((proteina_porcion + carbohidratos_disponibles_porcion) * 4 + grasa_total_porcion * 9))
+        energia_kj_porcion = int(round((proteina_porcion + carbohidratos_disponibles_porcion) * 17 + grasa_total_porcion * 37))
+
+        # 7. Porciones por envase (solo aquí se permiten decimales)
+        porciones_envase = None
+        if "contenido_neto" in data and data["contenido_neto"] and porcion:
+            try:
+                porciones_envase = data["contenido_neto"] / porcion
+            except Exception:
+                porciones_envase = None
+
+        # 8. Por envase (energía)
+        por_envase = None
+        if "contenido_neto" in data and data["contenido_neto"]:
+            factor_cn = data["contenido_neto"] / 100
+            energia_kcal_envase = int(round(energia_kcal_100g * factor_cn))
+            energia_kj_envase = int(round(energia_kj_100g * factor_cn))
+            por_envase = {
+                "energia_kcal": energia_kcal_envase,
+                "energia_kj": energia_kj_envase
+            }
+
+        resultados = {
+            "por_100g": {
+                "proteina": proteina_100g,
+                "grasa_total": grasa_total_100g,
+                "grasa_saturada": grasa_saturada_100g,
+                "grasa_trans": grasa_trans_100g,
+                "carbohidratos_disponibles": carbohidratos_disponibles_100g,
+                "azucares": azucares_100g,
+                "azucares_anadidos": azucares_anadidos_100g,
+                "fibra_dietetica": fibra_dietetica_100g,
+                "sodio": sodio_100g,
+                "energia_kcal": energia_kcal_100g,
+                "energia_kj": energia_kj_100g
+            },
+            "por_porcion": {
+                "proteina": proteina_porcion,
+                "grasa_total": grasa_total_porcion,
+                "grasa_saturada": grasa_saturada_porcion,
+                "grasa_trans": grasa_trans_porcion,
+                "carbohidratos_disponibles": carbohidratos_disponibles_porcion,
+                "azucares": azucares_porcion,
+                "azucares_anadidos": azucares_anadidos_porcion,
+                "fibra_dietetica": fibra_dietetica_porcion,
+                "sodio": sodio_porcion,
+                "energia_kcal": energia_kcal_porcion,
+                "energia_kj": energia_kj_porcion
+            }
+        }
+
+        if porciones_envase is not None:
+            resultados["porciones_envase"] = porciones_envase
+
+        if por_envase is not None:
+            resultados["por_envase"] = por_envase
+
+        resultados["es_porcion_100g"] = porcion == 100.0
+
+        return resultados
 
     def _mostrar_resultados(self, resultados):
-        """Mostrar resultados en el área de texto"""
+        """Mostrar resultados según formato de tabla nutrimental mexicana"""
         self.parent.resultados_text.config(state="normal")
         self.parent.resultados_text.delete("1.0", "end")
         
         texto = "TABLA NUTRIMENTAL MEXICANA\n"
         texto += "=" * 50 + "\n\n"
 
-        # Porciones por envase
+        # Porciones por envase - CON DECIMALES
         if "porciones_envase" in resultados and resultados["porciones_envase"] is not None:
-            texto += f"Porciones por envase: {resultados['porciones_envase']}\n\n"
+            porciones = resultados["porciones_envase"]
+            if porciones == int(porciones):
+                texto += f"Porciones por envase: {int(porciones)}\n\n"
+            else:
+                texto += f"Porciones por envase: {porciones:.1f}\n\n"
 
-        # Por 100g
+        # Por 100g/mL
         texto += "POR 100g/mL:\n"
         texto += "-" * 20 + "\n"
-        for key, value in resultados["por_100g"].items():
-            if key == "energia_kcal":
-                texto += f"Contenido energético: {value} kcal\n"
-            elif key == "energia_kj":
-                texto += f"Contenido energético: {value} kJ\n"
-            elif key == "sodio":
-                texto += f"Sodio: {value} mg\n"
-            elif key == "grasa_trans":
-                texto += f"Grasas trans: {value} mg\n"  # Modificado
-            elif key == "azucares_anadidos":
-                texto += f"Azúcares añadidos: {value} g\n"  # Modificado
-            else:
-                texto += f"{key.replace('_', ' ').title()}: {value} g\n"
+        
+        # Orden según normativa mexicana
+        orden_campos = [
+            ("proteina", "Proteína", "g"),
+            ("grasa_total", "Grasa Total", "g"), 
+            ("grasa_saturada", "Grasa Saturada", "g"),
+            ("grasa_trans", "Grasas trans", "mg"),
+            ("carbohidratos_disponibles", "Carbohidratos Disponibles", "g"),
+            ("azucares", "Azúcares", "g"),
+            ("azucares_anadidos", "Azúcares añadidos", "g"),
+            ("fibra_dietetica", "Fibra Dietética", "g"),
+            ("sodio", "Sodio", "mg"),
+            ("energia_kcal", "Contenido energético", "kcal"),
+            ("energia_kj", "Contenido energético", "kJ")
+        ]
+        
+        for key, nombre, unidad in orden_campos:
+            if key in resultados["por_100g"]:
+                value = resultados["por_100g"][key]
+                texto += f"{nombre}: {value} {unidad}\n"
         texto += "\n"
         
-        # Por porción
-        texto += "POR PORCIÓN:\n"
-        texto += "-" * 20 + "\n"
-        for key, value in resultados["por_porcion"].items():
-            if key == "energia_kcal":
-                texto += f"Contenido energético: {value} kcal\n"
-            elif key == "energia_kj":
-                texto += f"Contenido energético: {value} kJ\n"
-            elif key == "sodio":
-                texto += f"Sodio: {value} mg\n"
-            elif key == "grasa_trans":
-                texto += f"Grasas Trans: {value} mg\n"
-            else:
-                texto += f"{key.replace('_', ' ').title()}: {value} g\n"
-        texto += "\n"
+        # Por porción - SOLO SI NO ES 100g/mL
+        if not resultados.get("es_porcion_100g", False):
+            texto += "POR PORCIÓN:\n"
+            texto += "-" * 20 + "\n"
+            for key, nombre, unidad in orden_campos:
+                if key in resultados["por_porcion"]:
+                    value = resultados["por_porcion"][key]
+                    texto += f"{nombre}: {value} {unidad}\n"
+            texto += "\n"
         
         # Por envase
         if "por_envase" in resultados:
             texto += "POR ENVASE:\n"
             texto += "-" * 20 + "\n"
-            for key, value in resultados["por_envase"].items():
-                if key == "energia_kcal":
-                    texto += f"Contenido energético: {value} kcal\n"
-                elif key == "energia_kj":
-                    texto += f"Contenido energético: {value} kJ\n"
-                else:
-                    texto += f"{key.replace('_', ' ').title()}: {value}\n"
+            texto += f"Contenido energético: {resultados['por_envase']['energia_kcal']} kcal\n"
+            texto += f"Contenido energético: {resultados['por_envase']['energia_kj']} kJ\n"
 
         self.parent.resultados_text.insert("1.0", texto)
         self.parent.resultados_text.config(state="disabled")
