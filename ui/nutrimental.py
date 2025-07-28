@@ -315,6 +315,7 @@ class NutrimentalModule:
         # 4. Sodio y grasas trans (mg/100g), redondeo NOM-051, NO DECIMALES
         sodio_100g = self._aplicar_regla_redondeo_sodio(data["sodio"])
         grasa_trans_100g = self._aplicar_regla_redondeo_sodio(data["grasa_trans"])
+        # CORRECTO: usar el valor original para la regla de 3 y luego redondear
         grasa_trans_porcion = self._aplicar_regla_redondeo_sodio(data["grasa_trans"] * data["porcion"] / 100)
 
         # 5. Energía por 100g (usar valores ya redondeados)
