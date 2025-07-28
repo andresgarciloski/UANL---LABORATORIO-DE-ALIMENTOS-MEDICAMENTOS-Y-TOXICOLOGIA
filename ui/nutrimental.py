@@ -23,15 +23,21 @@ class NutrimentalModule:
         # Canvas para scroll
         canvas = tk.Canvas(main_frame, bg="#f4f8fc", highlightthickness=0)
         scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Frame interno
         scrollable_frame = tk.Frame(canvas, bg="#f4f8fc")
+        window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        # Ajustar ancho del frame interno al canvas SIEMPRE
+        def resize_inner_frame(event):
+            canvas.itemconfig(window_id, width=event.width)
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        canvas.bind("<Configure>", resize_inner_frame)
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Scroll con mouse
+        bind_mousewheel(canvas, canvas)
 
         # Configuración de columnas para que se adapten al ancho
         scrollable_frame.grid_columnconfigure(0, weight=1, minsize=220)
@@ -60,19 +66,6 @@ class NutrimentalModule:
         buttons_container = tk.Frame(buttons_frame, bg="#f4f8fc")
         buttons_container.pack(expand=True)
         self._create_buttons(buttons_container)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        bind_mousewheel(canvas, canvas)
-
-        # Actualizar scroll cuando cambie el tamaño de la ventana
-        def on_canvas_configure(event):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            # Ajustar ancho del frame scrollable al ancho del canvas
-            canvas_width = event.width
-            canvas.itemconfig(canvas.create_window((0, 0), window=scrollable_frame, anchor="nw"), width=canvas_width)
-
-        canvas.bind("<Configure>", on_canvas_configure)
 
     def _create_basic_fields(self, parent):
         """Crear campos básicos con estilo profesional"""
@@ -213,6 +206,73 @@ class NutrimentalModule:
             activeforeground="white"
         )
         export_btn.pack(side="left", padx=10)
+
+        guardar_bd_btn = tk.Button(
+            parent,
+            text="Guardar en Base de Datos",
+            command=self.guardar_solo_bd,
+            bg="#007bff",
+            fg="white",
+            font=("Segoe UI", 11, "bold"),
+            relief="flat",
+            padx=15,
+            pady=8,
+            cursor="hand2",
+            activebackground="#0056b3",
+            activeforeground="white"
+        )
+        guardar_bd_btn.pack(side="left", padx=10)
+
+    def guardar_solo_bd(self):
+        """Guardar solo en la base de datos, sin exportar archivo local"""
+        if not hasattr(self.parent, "ultimo_calculo"):
+            messagebox.showwarning("Advertencia", "Primero debe calcular la tabla nutrimental")
+            return
+
+        try:
+            nombre_actual = self.parent.nombre_entry.get().strip()
+            descripcion_actual = self.parent.descripcion_entry.get("1.0", "end-1c").strip()
+            if not nombre_actual:
+                messagebox.showerror("Error", "El campo '# de muestra' es obligatorio para guardar")
+                self.parent.nombre_entry.focus()
+                return
+
+            fecha_actual = datetime.datetime.now()
+            resultados = self.parent.ultimo_calculo["resultados"]
+
+            usuario_id = self.parent.get_usuario_id()
+            if usuario_id is None:
+                messagebox.showwarning("Advertencia", "No se pudo guardar en la base de datos: Usuario no válido")
+                return
+
+            descripcion_completa = f"{descripcion_actual}\n\n"
+            descripcion_completa += "DATOS NUTRICIONALES CALCULADOS:\n"
+            descripcion_completa += f"- Proteína: {resultados['por_100g']['proteina']}g/100g\n"
+            descripcion_completa += f"- Grasa total: {resultados['por_100g']['grasa_total']}g/100g\n"
+            descripcion_completa += f"- Carbohidratos disponibles: {resultados['por_100g']['carbohidratos_disponibles']}g/100g\n"
+            descripcion_completa += f"- Energía: {resultados['por_100g']['energia_kcal']} kcal/100g\n"
+            descripcion_completa += f"- Tamaño de porción analizada: {self.parent.ultimo_calculo['datos_entrada']['porcion']}g\n"
+            descripcion_completa += f"Guardado solo en base de datos (sin archivo local)"
+
+            # Guardar en base de datos, archivo_binario vacío
+            agregar_historial(
+                nombre_actual,
+                descripcion_completa,
+                fecha_actual.strftime("%Y-%m-%d"),
+                fecha_actual.strftime("%H:%M:%S"),
+                usuario_id,
+                b""  # No hay archivo binario
+            )
+
+            messagebox.showinfo(
+                "Guardado en Base de Datos",
+                f"✅ Tabla nutrimental guardada correctamente en la base de datos.\n\n"
+                f"👤 Usuario: {self.parent.username}\n"
+                f"📝 # de muestra: {nombre_actual}\n\n"
+                f"⚠️ No se generó archivo local."
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar en base de datos: {str(e)}")
 
     def calcular_tabla_nutrimental(self):
         """Calcular tabla nutrimental"""
