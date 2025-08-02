@@ -7,6 +7,7 @@ from openpyxl import load_workbook
 from PIL import Image, ImageDraw, ImageTk
 from core.auth import agregar_historial
 from ui.base_interface import bind_mousewheel
+import tempfile
 
 class NutrimentalModule:
     def __init__(self, parent_window):
@@ -225,12 +226,13 @@ class NutrimentalModule:
         guardar_bd_btn.pack(side="left", padx=10)
 
     def guardar_solo_bd(self):
-        """Guardar solo en la base de datos, sin exportar archivo local"""
+        """Guardar solo en la base de datos, generando y guardando el PDF"""
         if not hasattr(self.parent, "ultimo_calculo"):
             messagebox.showwarning("Advertencia", "Primero debe calcular la tabla nutrimental")
             return
 
         try:
+            # Verificar datos básicos
             nombre_actual = self.parent.nombre_entry.get().strip()
             descripcion_actual = self.parent.descripcion_entry.get("1.0", "end-1c").strip()
             if not nombre_actual:
@@ -238,42 +240,158 @@ class NutrimentalModule:
                 self.parent.nombre_entry.focus()
                 return
 
-            fecha_actual = datetime.datetime.now()
-            resultados = self.parent.ultimo_calculo["resultados"]
-
+            # Verificar usuario válido
             usuario_id = self.parent.get_usuario_id()
             if usuario_id is None:
                 messagebox.showwarning("Advertencia", "No se pudo guardar en la base de datos: Usuario no válido")
                 return
 
-            descripcion_completa = f"{descripcion_actual}\n\n"
-            descripcion_completa += "DATOS NUTRICIONALES CALCULADOS:\n"
-            descripcion_completa += f"- Proteína: {resultados['por_100g']['proteina']}g/100g\n"
-            descripcion_completa += f"- Grasa total: {resultados['por_100g']['grasa_total']}g/100g\n"
-            descripcion_completa += f"- Carbohidratos disponibles: {resultados['por_100g']['carbohidratos_disponibles']}g/100g\n"
-            descripcion_completa += f"- Energía: {resultados['por_100g']['energia_kcal']} kcal/100g\n"
-            descripcion_completa += f"- Tamaño de porción analizada: {self.parent.ultimo_calculo['datos_entrada']['porcion']}g\n"
-            descripcion_completa += f"Guardado solo en base de datos (sin archivo local)"
+            # Cargar plantilla Excel
+            ruta_plantilla = "formato.xlsx"
+            wb = load_workbook(ruta_plantilla)
+            ws = wb.active
 
-            # Guardar en base de datos, archivo_binario vacío
-            agregar_historial(
-                nombre_actual,
-                descripcion_completa,
-                fecha_actual.strftime("%Y-%m-%d"),
-                fecha_actual.strftime("%H:%M:%S"),
-                usuario_id,
-                b""  # No hay archivo binario
-            )
+            resultados = self.parent.ultimo_calculo["resultados"]
+            entrada = self.parent.ultimo_calculo["datos_entrada"]
+            datos_basicos = self.parent.ultimo_calculo["datos_basicos"]
 
-            messagebox.showinfo(
-                "Guardado en Base de Datos",
-                f"✅ Tabla nutrimental guardada correctamente en la base de datos.\n\n"
-                f"👤 Usuario: {self.parent.username}\n"
-                f"📝 # de muestra: {nombre_actual}\n\n"
-                f"⚠️ No se generó archivo local."
-            )
+            # Llenar datos en la plantilla Excel
+            ws["E17"] = entrada.get("porcion", "")
+            ws["E18"] = round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else ""
+            ws["F19"] = resultados.get("por_envase", {}).get("energia_kcal", "")
+            ws["F12"] = entrada.get("contenido_neto", "")
+            ws["C8"] = f"{nombre_actual} - {descripcion_actual}"
+
+            # Por 100g/mL
+            ws["F21"] = resultados["por_100g"].get("energia_kcal", "")
+            ws["G21"] = "kcal"
+            ws["F22"] = resultados["por_100g"].get("proteina", "")
+            ws["G22"] = "g"
+            ws["F23"] = resultados["por_100g"].get("grasa_total", "")
+            ws["G23"] = "g"
+            ws["F24"] = resultados["por_100g"].get("grasa_saturada", "")
+            ws["G24"] = "g"
+            ws["F25"] = resultados["por_100g"].get("grasa_trans", "")
+            ws["G25"] = "mg"
+            ws["F26"] = resultados["por_100g"].get("carbohidratos_disponibles", "")
+            ws["G26"] = "g"
+            ws["F27"] = resultados["por_100g"].get("azucares", "")
+            ws["G27"] = "g"
+            ws["F28"] = resultados["por_100g"].get("azucares_anadidos", "")
+            ws["G28"] = "g"
+            ws["F29"] = resultados["por_100g"].get("fibra_dietetica", "")
+            ws["G29"] = "g"
+            ws["F30"] = resultados["por_100g"].get("sodio", "")
+            ws["G30"] = "mg"
+
+            # Por porción
+            ws["H21"] = resultados["por_porcion"].get("energia_kcal", "")
+            ws["I21"] = "kcal"
+            ws["H22"] = resultados["por_porcion"].get("proteina", "")
+            ws["I22"] = "g"
+            ws["H23"] = resultados["por_porcion"].get("grasa_total", "")
+            ws["I23"] = "g"
+            ws["H24"] = resultados["por_porcion"].get("grasa_saturada", "")
+            ws["I24"] = "g"
+            ws["H25"] = resultados["por_porcion"].get("grasa_trans", "")
+            ws["I25"] = "mg"
+            ws["H26"] = resultados["por_porcion"].get("carbohidratos_disponibles", "")
+            ws["I26"] = "g"
+            ws["H27"] = resultados["por_porcion"].get("azucares", "")
+            ws["I27"] = "g"
+            ws["H28"] = resultados["por_porcion"].get("azucares_anadidos", "")
+            ws["I28"] = "g"
+            ws["H29"] = resultados["por_porcion"].get("fibra_dietetica", "")
+            ws["I29"] = "g"
+            ws["H30"] = resultados["por_porcion"].get("sodio", "")
+            ws["I30"] = "mg"
+
+            # Crear archivos temporales
+            tmp_excel_path = None
+            tmp_pdf_path = None
+
+            try:
+                # Guardar Excel temporal
+                with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_excel:
+                    wb.save(tmp_excel.name)
+                    tmp_excel_path = tmp_excel.name
+
+                # Convertir a PDF
+                import win32com.client
+                excel = win32com.client.Dispatch("Excel.Application")
+                excel.Visible = False
+                wb_pdf = excel.Workbooks.Open(tmp_excel_path)
+                
+                # Generar nombre para el PDF
+                fecha = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                nombre_archivo_pdf = f"nutrimental_{nombre_actual}_{fecha}.pdf"
+                tmp_pdf_path = os.path.join(tempfile.gettempdir(), nombre_archivo_pdf)
+                
+                # Exportar a PDF y cerrar Excel
+                wb_pdf.ExportAsFixedFormat(0, tmp_pdf_path)
+                wb_pdf.Close(False)
+                excel.Quit()
+
+                # Verificar que el PDF se creó correctamente
+                if not os.path.exists(tmp_pdf_path):
+                    raise Exception("No se pudo generar el archivo PDF")
+
+                # Leer el PDF para guardarlo en la base de datos
+                with open(tmp_pdf_path, "rb") as f:
+                    archivo_binario = f.read()
+
+                # Crear descripción para la base de datos
+                fecha_actual = datetime.datetime.now()
+                descripcion_completa = f"{descripcion_actual}\n\n"
+                descripcion_completa += "TABLA NUTRIMENTAL OFICIAL (PDF):\n"
+                descripcion_completa += f"- Proteína: {resultados['por_100g']['proteina']}g/100g\n"
+                descripcion_completa += f"- Grasa total: {resultados['por_100g']['grasa_total']}g/100g\n"
+                descripcion_completa += f"- Carbohidratos disponibles: {resultados['por_100g']['carbohidratos_disponibles']}g/100g\n"
+                descripcion_completa += f"- Energía: {resultados['por_100g']['energia_kcal']} kcal/100g\n"
+                descripcion_completa += f"- Tamaño de porción: {entrada['porcion']}g\n"
+                descripcion_completa += f"- Contenido neto: {entrada.get('contenido_neto', 'No especificado')}\n"
+                descripcion_completa += f"Archivo PDF formato oficial generado el {fecha_actual.strftime('%d/%m/%Y %H:%M:%S')}"
+
+                # Guardar en la base de datos
+                agregar_historial(
+                    nombre_actual,
+                    descripcion_completa,
+                    fecha_actual.strftime("%Y-%m-%d"),
+                    fecha_actual.strftime("%H:%M:%S"),
+                    usuario_id,
+                    archivo_binario
+                )
+
+                messagebox.showinfo(
+                    "Guardado en Base de Datos",
+                    f"✅ PDF nutrimental guardado correctamente en la base de datos.\n\n"
+                    f"👤 Usuario: {self.parent.username}\n"
+                    f"📝 # de muestra: {nombre_actual}\n"
+                    f"📊 Formato: Tabla Nutrimental Oficial\n\n"
+                    f"⚠️ No se generó archivo local."
+                )
+
+            except ImportError:
+                messagebox.showwarning("PDF no generado", "No se pudo importar win32com. Instala con:\npip install pywin32")
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al guardar PDF en base de datos: {str(e)}")
+            finally:
+                # Limpiar archivos temporales
+                if tmp_excel_path and os.path.exists(tmp_excel_path):
+                    try:
+                        os.remove(tmp_excel_path)
+                    except:
+                        pass
+                if tmp_pdf_path and os.path.exists(tmp_pdf_path):
+                    try:
+                        os.remove(tmp_pdf_path)
+                    except:
+                        pass
+
+        except FileNotFoundError:
+            messagebox.showerror("Error", "No se encontró la plantilla formato.xlsx. Debe estar en la carpeta principal del programa.")
         except Exception as e:
-            messagebox.showerror("Error", f"Error al guardar en base de datos: {str(e)}")
+            messagebox.showerror("Error", f"No se pudo completar la exportación:\n{str(e)}")
 
     def calcular_tabla_nutrimental(self):
         """Calcular tabla nutrimental"""
@@ -768,34 +886,208 @@ class NutrimentalModule:
             ws["I30"] = "mg"
 
             # === Guardar archivo Excel temporal ===
-            fecha = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            nombre_archivo_excel = f"nutrimental_{nombre_muestra}_{fecha}.xlsx"
-            ruta_guardado_excel = filedialog.asksaveasfilename(
-                defaultextension=".xlsx",
-                initialfile=nombre_archivo_excel,
-                filetypes=[("Archivos de Excel", "*.xlsx")]
-            )
-            if not ruta_guardado_excel:
-                messagebox.showinfo("Cancelado", "Exportación cancelada por el usuario.")
-                return
-
-            wb.save(ruta_guardado_excel)
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_excel:
+                wb.save(tmp_excel.name)
+                tmp_excel_path = tmp_excel.name
 
             # === Convertir a PDF usando Excel (solo Windows con Office) ===
             try:
                 import win32com.client
                 excel = win32com.client.Dispatch("Excel.Application")
                 excel.Visible = False
-                wb_pdf = excel.Workbooks.Open(ruta_guardado_excel)
-                ruta_guardado_pdf = ruta_guardado_excel.replace(".xlsx", ".pdf")
+                wb_pdf = excel.Workbooks.Open(tmp_excel_path)
+                fecha = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                nombre_archivo_pdf = f"nutrimental_{nombre_muestra}_{fecha}.pdf"
+                ruta_guardado_pdf = filedialog.asksaveasfilename(
+                    defaultextension=".pdf",
+                    initialfile=nombre_archivo_pdf,
+                    filetypes=[("Archivos PDF", "*.pdf")]
+                )
+                if not ruta_guardado_pdf:
+                    wb_pdf.Close(False)
+                    excel.Quit()
+                    os.remove(tmp_excel_path)
+                    messagebox.showinfo("Cancelado", "Exportación cancelada por el usuario.")
+                    return
                 wb_pdf.ExportAsFixedFormat(0, ruta_guardado_pdf)
                 wb_pdf.Close(False)
                 excel.Quit()
+                os.remove(tmp_excel_path)
                 messagebox.showinfo("Éxito", f"Archivo PDF exportado correctamente:\n\n{ruta_guardado_pdf}")
+            except ImportError:
+                os.remove(tmp_excel_path)
+                messagebox.showwarning("PDF no generado", "No se pudo importar win32com. Instala con:\npip install pywin32")
+            except Exception as e:
+                os.remove(tmp_excel_path)
+                messagebox.showerror("Error PDF", f"No se pudo convertir a PDF:\n{str(e)}")
+
+        except FileNotFoundError:
+            messagebox.showerror("Error", "No se encontró la plantilla formato.xlsx. Debe estar en la carpeta principal del programa.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo completar la exportación:\n{str(e)}")
+
+    def guardar_solo_bd(self):
+        """Guardar solo en la base de datos, generando y guardando el PDF"""
+        if not hasattr(self.parent, "ultimo_calculo"):
+            messagebox.showwarning("Advertencia", "Primero debe calcular la tabla nutrimental")
+            return
+
+        try:
+            # Verificar datos básicos
+            nombre_actual = self.parent.nombre_entry.get().strip()
+            descripcion_actual = self.parent.descripcion_entry.get("1.0", "end-1c").strip()
+            if not nombre_actual:
+                messagebox.showerror("Error", "El campo '# de muestra' es obligatorio para guardar")
+                self.parent.nombre_entry.focus()
+                return
+
+            # Verificar usuario válido
+            usuario_id = self.parent.get_usuario_id()
+            if usuario_id is None:
+                messagebox.showwarning("Advertencia", "No se pudo guardar en la base de datos: Usuario no válido")
+                return
+
+            # Cargar plantilla Excel
+            ruta_plantilla = "formato.xlsx"
+            wb = load_workbook(ruta_plantilla)
+            ws = wb.active
+
+            resultados = self.parent.ultimo_calculo["resultados"]
+            entrada = self.parent.ultimo_calculo["datos_entrada"]
+            datos_basicos = self.parent.ultimo_calculo["datos_basicos"]
+
+            # Llenar datos en la plantilla Excel
+            ws["E17"] = entrada.get("porcion", "")
+            ws["E18"] = round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else ""
+            ws["F19"] = resultados.get("por_envase", {}).get("energia_kcal", "")
+            ws["F12"] = entrada.get("contenido_neto", "")
+            ws["C8"] = f"{nombre_actual} - {descripcion_actual}"
+
+            # Por 100g/mL
+            ws["F21"] = resultados["por_100g"].get("energia_kcal", "")
+            ws["G21"] = "kcal"
+            ws["F22"] = resultados["por_100g"].get("proteina", "")
+            ws["G22"] = "g"
+            ws["F23"] = resultados["por_100g"].get("grasa_total", "")
+            ws["G23"] = "g"
+            ws["F24"] = resultados["por_100g"].get("grasa_saturada", "")
+            ws["G24"] = "g"
+            ws["F25"] = resultados["por_100g"].get("grasa_trans", "")
+            ws["G25"] = "mg"
+            ws["F26"] = resultados["por_100g"].get("carbohidratos_disponibles", "")
+            ws["G26"] = "g"
+            ws["F27"] = resultados["por_100g"].get("azucares", "")
+            ws["G27"] = "g"
+            ws["F28"] = resultados["por_100g"].get("azucares_anadidos", "")
+            ws["G28"] = "g"
+            ws["F29"] = resultados["por_100g"].get("fibra_dietetica", "")
+            ws["G29"] = "g"
+            ws["F30"] = resultados["por_100g"].get("sodio", "")
+            ws["G30"] = "mg"
+
+            # Por porción
+            ws["H21"] = resultados["por_porcion"].get("energia_kcal", "")
+            ws["I21"] = "kcal"
+            ws["H22"] = resultados["por_porcion"].get("proteina", "")
+            ws["I22"] = "g"
+            ws["H23"] = resultados["por_porcion"].get("grasa_total", "")
+            ws["I23"] = "g"
+            ws["H24"] = resultados["por_porcion"].get("grasa_saturada", "")
+            ws["I24"] = "g"
+            ws["H25"] = resultados["por_porcion"].get("grasa_trans", "")
+            ws["I25"] = "mg"
+            ws["H26"] = resultados["por_porcion"].get("carbohidratos_disponibles", "")
+            ws["I26"] = "g"
+            ws["H27"] = resultados["por_porcion"].get("azucares", "")
+            ws["I27"] = "g"
+            ws["H28"] = resultados["por_porcion"].get("azucares_anadidos", "")
+            ws["I28"] = "g"
+            ws["H29"] = resultados["por_porcion"].get("fibra_dietetica", "")
+            ws["I29"] = "g"
+            ws["H30"] = resultados["por_porcion"].get("sodio", "")
+            ws["I30"] = "mg"
+
+            # Crear archivos temporales
+            tmp_excel_path = None
+            tmp_pdf_path = None
+
+            try:
+                # Guardar Excel temporal
+                with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_excel:
+                    wb.save(tmp_excel.name)
+                    tmp_excel_path = tmp_excel.name
+
+                # Convertir a PDF
+                import win32com.client
+                excel = win32com.client.Dispatch("Excel.Application")
+                excel.Visible = False
+                wb_pdf = excel.Workbooks.Open(tmp_excel_path)
+                
+                # Generar nombre para el PDF
+                fecha = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                nombre_archivo_pdf = f"nutrimental_{nombre_actual}_{fecha}.pdf"
+                tmp_pdf_path = os.path.join(tempfile.gettempdir(), nombre_archivo_pdf)
+                
+                # Exportar a PDF y cerrar Excel
+                wb_pdf.ExportAsFixedFormat(0, tmp_pdf_path)
+                wb_pdf.Close(False)
+                excel.Quit()
+
+                # Verificar que el PDF se creó correctamente
+                if not os.path.exists(tmp_pdf_path):
+                    raise Exception("No se pudo generar el archivo PDF")
+
+                # Leer el PDF para guardarlo en la base de datos
+                with open(tmp_pdf_path, "rb") as f:
+                    archivo_binario = f.read()
+
+                # Crear descripción para la base de datos
+                fecha_actual = datetime.datetime.now()
+                descripcion_completa = f"{descripcion_actual}\n\n"
+                descripcion_completa += "TABLA NUTRIMENTAL OFICIAL (PDF):\n"
+                descripcion_completa += f"- Proteína: {resultados['por_100g']['proteina']}g/100g\n"
+                descripcion_completa += f"- Grasa total: {resultados['por_100g']['grasa_total']}g/100g\n"
+                descripcion_completa += f"- Carbohidratos disponibles: {resultados['por_100g']['carbohidratos_disponibles']}g/100g\n"
+                descripcion_completa += f"- Energía: {resultados['por_100g']['energia_kcal']} kcal/100g\n"
+                descripcion_completa += f"- Tamaño de porción: {entrada['porcion']}g\n"
+                descripcion_completa += f"- Contenido neto: {entrada.get('contenido_neto', 'No especificado')}\n"
+                descripcion_completa += f"Archivo PDF formato oficial generado el {fecha_actual.strftime('%d/%m/%Y %H:%M:%S')}"
+
+                # Guardar en la base de datos
+                agregar_historial(
+                    nombre_actual,
+                    descripcion_completa,
+                    fecha_actual.strftime("%Y-%m-%d"),
+                    fecha_actual.strftime("%H:%M:%S"),
+                    usuario_id,
+                    archivo_binario
+                )
+
+                messagebox.showinfo(
+                    "Guardado en Base de Datos",
+                    f"✅ PDF nutrimental guardado correctamente en la base de datos.\n\n"
+                    f"👤 Usuario: {self.parent.username}\n"
+                    f"📝 # de muestra: {nombre_actual}\n"
+                    f"📊 Formato: Tabla Nutrimental Oficial\n\n"
+                    f"⚠️ No se generó archivo local."
+                )
+
             except ImportError:
                 messagebox.showwarning("PDF no generado", "No se pudo importar win32com. Instala con:\npip install pywin32")
             except Exception as e:
-                messagebox.showerror("Error PDF", f"El Excel se guardó pero no se pudo convertir a PDF:\n{str(e)}")
+                messagebox.showerror("Error", f"Error al guardar PDF en base de datos: {str(e)}")
+            finally:
+                # Limpiar archivos temporales
+                if tmp_excel_path and os.path.exists(tmp_excel_path):
+                    try:
+                        os.remove(tmp_excel_path)
+                    except:
+                        pass
+                if tmp_pdf_path and os.path.exists(tmp_pdf_path):
+                    try:
+                        os.remove(tmp_pdf_path)
+                    except:
+                        pass
 
         except FileNotFoundError:
             messagebox.showerror("Error", "No se encontró la plantilla formato.xlsx. Debe estar en la carpeta principal del programa.")

@@ -348,15 +348,29 @@ class HistorialModule:
         if not archivo_bin:
             messagebox.showwarning("Advertencia", "No hay archivo para descargar.")
             return
-            
+        
         try:
+            # Detectar tipo de archivo basado en sus primeros bytes
+            tipo_archivo = ".xlsx"  # Default
+            extension = ".xlsx"
+            
+            # Detectar si es PDF (inicia con %PDF)
+            if archivo_bin[:4] == b'%PDF':
+                tipo_archivo = "PDF"
+                extension = ".pdf"
+            # Detectar si es Excel (XLSX)
+            elif archivo_bin[:2] == b'PK':
+                tipo_archivo = "Excel"
+                extension = ".xlsx"
+                
             # Limpiar nombre de archivo
             nombre_limpio = "".join(c for c in str(nombre) if c.isalnum() or c in (' ', '-', '_', '.')).rstrip()
             if not nombre_limpio:
                 nombre_limpio = "archivo_descargado"
                 
-            if not nombre_limpio.lower().endswith(('.xlsx', '.xls', '.pdf', '.doc', '.docx')):
-                nombre_limpio = nombre_limpio + ".xlsx"
+            # Asegurarse de que tenga la extensión correcta
+            if not nombre_limpio.lower().endswith(extension):
+                nombre_limpio = nombre_limpio + extension
                 
             # Ubicación de descarga
             try:
@@ -367,14 +381,12 @@ class HistorialModule:
                 desktop = ""
                 
             file_path = filedialog.asksaveasfilename(
-                title="Guardar archivo",
+                title=f"Guardar archivo {tipo_archivo}",
                 initialfile=nombre_limpio,
                 initialdir=desktop,
-                defaultextension=".xlsx",
+                defaultextension=extension,
                 filetypes=[
-                    ("Archivos Excel", "*.xlsx"),
-                    ("Archivos PDF", "*.pdf"),
-                    ("Archivos Word", "*.docx"),
+                    ("Archivos PDF", "*.pdf") if tipo_archivo == "PDF" else ("Archivos Excel", "*.xlsx"),
                     ("Todos los archivos", "*.*")
                 ]
             )
@@ -382,7 +394,7 @@ class HistorialModule:
             if file_path:
                 with open(file_path, "wb") as f:
                     f.write(archivo_bin)
-                messagebox.showinfo("Éxito", f"Archivo guardado exitosamente:\n{file_path}")
+                messagebox.showinfo("Éxito", f"Archivo {tipo_archivo} guardado exitosamente:\n{file_path}")
             else:
                 messagebox.showinfo("Cancelado", "Descarga cancelada por el usuario.")
                 
