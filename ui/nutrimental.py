@@ -3,6 +3,7 @@ from tkinter import messagebox, filedialog
 import datetime
 import os
 import pandas as pd
+from openpyxl import load_workbook
 from PIL import Image, ImageDraw, ImageTk
 from core.auth import agregar_historial
 from ui.base_interface import bind_mousewheel
@@ -191,21 +192,21 @@ class NutrimentalModule:
         )
         calc_btn.pack(side="left", padx=(0, 10))
 
-        export_btn = tk.Button(
+        formato_btn = tk.Button(
             parent,
-            text="Exportar a Excel",
-            command=self.exportar_nutrimental_excel,
-            bg="#28a745",
-            fg="white",
+            text="Exportar en formato oficial",
+            command=self.exportar_a_formato_predefinido,
+            bg="#ffc107",
+            fg="black",
             font=("Segoe UI", 11, "bold"),
             relief="flat",
             padx=15,
             pady=8,
             cursor="hand2",
-            activebackground="#218838",
-            activeforeground="white"
+            activebackground="#e0a800",
+            activeforeground="black"
         )
-        export_btn.pack(side="left", padx=10)
+        formato_btn.pack(side="left", padx=10)
 
         guardar_bd_btn = tk.Button(
             parent,
@@ -697,3 +698,106 @@ class NutrimentalModule:
             messagebox.showerror("Error", "No se pudo importar pandas. Asegúrate de que esté instalado:\npip install pandas openpyxl")
         except Exception as e:
             messagebox.showerror("Error", f"Error al exportar: {str(e)}")
+
+    def exportar_a_formato_predefinido(self):
+        import sys
+        if not hasattr(self.parent, "ultimo_calculo"):
+            messagebox.showwarning("Advertencia", "Primero debe calcular la tabla nutrimental")
+            return
+
+        try:
+            ruta_plantilla = "formato.xlsx"
+            wb = load_workbook(ruta_plantilla)
+            ws = wb.active
+
+            resultados = self.parent.ultimo_calculo["resultados"]
+            entrada = self.parent.ultimo_calculo["datos_entrada"]
+            datos_basicos = self.parent.ultimo_calculo["datos_basicos"]
+
+            # === Valores generales ===
+            ws["E17"] = entrada.get("porcion", "")
+            ws["E18"] = round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else ""
+            ws["F19"] = resultados.get("por_envase", {}).get("energia_kcal", "")
+            ws["F12"] = entrada.get("contenido_neto", "")
+            nombre_muestra = datos_basicos.get("nombre", "")
+            descripcion = datos_basicos.get("descripcion", "")
+            ws["C8"] = f"{nombre_muestra} - {descripcion}"
+
+            # === Por 100 mL ===
+            ws["F21"] = resultados["por_100g"].get("energia_kcal", "")
+            ws["G21"] = "kcal"
+            ws["F22"] = resultados["por_100g"].get("proteina", "")
+            ws["G22"] = "g"
+            ws["F23"] = resultados["por_100g"].get("grasa_total", "")
+            ws["G23"] = "g"
+            ws["F24"] = resultados["por_100g"].get("grasa_saturada", "")
+            ws["G24"] = "g"
+            ws["F25"] = resultados["por_100g"].get("grasa_trans", "")
+            ws["G25"] = "mg"
+            ws["F26"] = resultados["por_100g"].get("carbohidratos_disponibles", "")
+            ws["G26"] = "g"
+            ws["F27"] = resultados["por_100g"].get("azucares", "")
+            ws["G27"] = "g"
+            ws["F28"] = resultados["por_100g"].get("azucares_anadidos", "")
+            ws["G28"] = "g"
+            ws["F29"] = resultados["por_100g"].get("fibra_dietetica", "")
+            ws["G29"] = "g"
+            ws["F30"] = resultados["por_100g"].get("sodio", "")
+            ws["G30"] = "mg"
+
+            # === Por porción ===
+            ws["H21"] = resultados["por_porcion"].get("energia_kcal", "")
+            ws["I21"] = "kcal"
+            ws["H22"] = resultados["por_porcion"].get("proteina", "")
+            ws["I22"] = "g"
+            ws["H23"] = resultados["por_porcion"].get("grasa_total", "")
+            ws["I23"] = "g"
+            ws["H24"] = resultados["por_porcion"].get("grasa_saturada", "")
+            ws["I24"] = "g"
+            ws["H25"] = resultados["por_porcion"].get("grasa_trans", "")
+            ws["I25"] = "mg"
+            ws["H26"] = resultados["por_porcion"].get("carbohidratos_disponibles", "")
+            ws["I26"] = "g"
+            ws["H27"] = resultados["por_porcion"].get("azucares", "")
+            ws["I27"] = "g"
+            ws["H28"] = resultados["por_porcion"].get("azucares_anadidos", "")
+            ws["I28"] = "g"
+            ws["H29"] = resultados["por_porcion"].get("fibra_dietetica", "")
+            ws["I29"] = "g"
+            ws["H30"] = resultados["por_porcion"].get("sodio", "")
+            ws["I30"] = "mg"
+
+            # === Guardar archivo Excel temporal ===
+            fecha = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            nombre_archivo_excel = f"nutrimental_{nombre_muestra}_{fecha}.xlsx"
+            ruta_guardado_excel = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                initialfile=nombre_archivo_excel,
+                filetypes=[("Archivos de Excel", "*.xlsx")]
+            )
+            if not ruta_guardado_excel:
+                messagebox.showinfo("Cancelado", "Exportación cancelada por el usuario.")
+                return
+
+            wb.save(ruta_guardado_excel)
+
+            # === Convertir a PDF usando Excel (solo Windows con Office) ===
+            try:
+                import win32com.client
+                excel = win32com.client.Dispatch("Excel.Application")
+                excel.Visible = False
+                wb_pdf = excel.Workbooks.Open(ruta_guardado_excel)
+                ruta_guardado_pdf = ruta_guardado_excel.replace(".xlsx", ".pdf")
+                wb_pdf.ExportAsFixedFormat(0, ruta_guardado_pdf)
+                wb_pdf.Close(False)
+                excel.Quit()
+                messagebox.showinfo("Éxito", f"Archivo PDF exportado correctamente:\n\n{ruta_guardado_pdf}")
+            except ImportError:
+                messagebox.showwarning("PDF no generado", "No se pudo importar win32com. Instala con:\npip install pywin32")
+            except Exception as e:
+                messagebox.showerror("Error PDF", f"El Excel se guardó pero no se pudo convertir a PDF:\n{str(e)}")
+
+        except FileNotFoundError:
+            messagebox.showerror("Error", "No se encontró la plantilla formato.xlsx. Debe estar en la carpeta principal del programa.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo completar la exportación:\n{str(e)}")
