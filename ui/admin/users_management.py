@@ -146,7 +146,7 @@ class UsersManagement:
         main_canvas.pack(side="left", fill="both", expand=True)
         main_scrollbar.pack(side="right", fill="y")
         
-        bind_mousewheel(main_canvas, main_canvas)
+        bind_mousewheel(self.users_table_frame, main_canvas)
 
     def add_user_popup(self):
         """Popup para agregar usuario"""

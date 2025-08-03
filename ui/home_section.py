@@ -90,8 +90,8 @@ class HomeSection:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Enlazar scroll del mouse
-        bind_mousewheel(canvas, canvas)
+        # Enlazar scroll del mouse SOLO cuando el mouse está sobre el área de contenido
+        bind_mousewheel(content_frame, canvas)
         
         # Llamar center_content después de un breve delay
         self.parent.after(100, center_content)

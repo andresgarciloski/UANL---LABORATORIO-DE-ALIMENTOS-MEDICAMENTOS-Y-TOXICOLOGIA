@@ -42,6 +42,29 @@ class HistorialModule:
         main_scrollbar.pack(side="right", fill="y")
         bind_mousewheel(main_canvas, main_canvas)
 
+        # --- MEJOR SCROLL CON MOUSE SOLO EN EL CANVAS ---
+        def _on_mousewheel(event):
+            try:
+                if main_canvas.winfo_exists():
+                    main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass
+
+        def _on_mousewheel_linux(event):
+            try:
+                if main_canvas.winfo_exists():
+                    main_canvas.yview_scroll(int(-1*event.delta), "units")
+            except tk.TclError:
+                pass
+
+        main_canvas.bind("<Enter>", lambda e: main_canvas.bind("<MouseWheel>", _on_mousewheel))
+        main_canvas.bind("<Leave>", lambda e: main_canvas.unbind("<MouseWheel>"))
+        main_canvas.bind("<Enter>", lambda e: main_canvas.bind("<Button-4>", _on_mousewheel_linux))
+        main_canvas.bind("<Leave>", lambda e: main_canvas.unbind("<Button-4>"))
+        main_canvas.bind("<Enter>", lambda e: main_canvas.bind("<Button-5>", _on_mousewheel_linux))
+        main_canvas.bind("<Leave>", lambda e: main_canvas.unbind("<Button-5>"))
+        # --- FIN MEJOR SCROLL ---
+
         self._actualizar_tabla_historial_filtrada()
 
     def _create_filters(self):

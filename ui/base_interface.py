@@ -4,18 +4,27 @@ import os
 from PIL import Image, ImageTk, ImageDraw
 
 def bind_mousewheel(widget, canvas):
-    """Función para enlazar el scroll del mouse a un canvas"""
+    """Función para enlazar el scroll del mouse a un canvas solo cuando el mouse está sobre el widget"""
     def _on_mousewheel(event):
-        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-    
-    def _bind_to_mousewheel(event):
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
-    
-    def _unbind_from_mousewheel(event):
-        canvas.unbind_all("<MouseWheel>")
-    
-    widget.bind('<Enter>', _bind_to_mousewheel)
-    widget.bind('<Leave>', _unbind_from_mousewheel)
+        try:
+            if canvas.winfo_exists():
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        except tk.TclError:
+            pass
+
+    def _on_mousewheel_linux(event):
+        try:
+            if canvas.winfo_exists():
+                canvas.yview_scroll(int(-1*event.delta), "units")
+        except tk.TclError:
+            pass
+
+    widget.bind("<Enter>", lambda e: canvas.bind("<MouseWheel>", _on_mousewheel))
+    widget.bind("<Leave>", lambda e: canvas.unbind("<MouseWheel>"))
+    widget.bind("<Enter>", lambda e: canvas.bind("<Button-4>", _on_mousewheel_linux))
+    widget.bind("<Leave>", lambda e: canvas.unbind("<Button-4>"))
+    widget.bind("<Enter>", lambda e: canvas.bind("<Button-5>", _on_mousewheel_linux))
+    widget.bind("<Leave>", lambda e: canvas.unbind("<Button-5>"))
 
 class BaseInterface(tk.Tk):
     def __init__(self, username=None, rol="usuario"):

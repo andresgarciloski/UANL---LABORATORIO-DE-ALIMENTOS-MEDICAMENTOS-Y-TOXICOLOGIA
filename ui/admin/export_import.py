@@ -5,6 +5,7 @@ import datetime
 import zipfile
 import io
 from core.auth import obtener_historial, importar_registro
+from ui.base_interface import bind_mousewheel
 
 class ExportImportSection:
     def __init__(self, parent):
@@ -19,13 +20,29 @@ class ExportImportSection:
             except:
                 pass
 
-        # Frame principal
+        # Frame principal con canvas y scroll
         main_frame = tk.Frame(self.parent.content_frame, bg="white")
         main_frame.pack(fill="both", expand=True, padx=40, pady=30)
 
-        # Título
+        canvas = tk.Canvas(main_frame, bg="white", highlightthickness=0)
+        scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        scrollable_frame = tk.Frame(canvas, bg="white")
+        window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        def resize_inner_frame(event):
+            canvas.itemconfig(window_id, width=event.width)
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        canvas.bind("<Configure>", resize_inner_frame)
+
+        # Scroll solo cuando el mouse está sobre el área desplazable
+        bind_mousewheel(scrollable_frame, canvas)
+
+        # --- Pon los widgets dentro de scrollable_frame ---
         title_label = tk.Label(
-            main_frame,
+            scrollable_frame,
             text="Exportar/Importar Base de Datos",
             font=("Segoe UI", 18, "bold"),
             fg="#0B5394",
@@ -35,7 +52,7 @@ class ExportImportSection:
 
         # Sección de Exportar
         export_frame = tk.LabelFrame(
-            main_frame,
+            scrollable_frame,
             text="Exportar Datos",
             font=("Segoe UI", 14, "bold"),
             fg="#0B5394",
@@ -69,7 +86,7 @@ class ExportImportSection:
 
         # Sección de Importar
         import_frame = tk.LabelFrame(
-            main_frame,
+            scrollable_frame,
             text="Importar Datos",
             font=("Segoe UI", 14, "bold"),
             fg="#0B5394",

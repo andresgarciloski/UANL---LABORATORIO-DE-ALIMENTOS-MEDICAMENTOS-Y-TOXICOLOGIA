@@ -18,28 +18,46 @@ class NutrimentalModule:
         for widget in self.parent.content_frame.winfo_children():
             widget.destroy()
 
-        # Frame principal con fondo blanco y borde elegante
         main_frame = tk.Frame(self.parent.content_frame, bg="#f4f8fc", bd=0)
         main_frame.pack(expand=True, fill="both", padx=20, pady=(5, 20))
 
-        # Canvas para scroll
         canvas = tk.Canvas(main_frame, bg="#f4f8fc", highlightthickness=0)
         scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Frame interno
         scrollable_frame = tk.Frame(canvas, bg="#f4f8fc")
         window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-        # Ajustar ancho del frame interno al canvas SIEMPRE
         def resize_inner_frame(event):
             canvas.itemconfig(window_id, width=event.width)
             canvas.configure(scrollregion=canvas.bbox("all"))
         canvas.bind("<Configure>", resize_inner_frame)
 
-        # Scroll con mouse
-        bind_mousewheel(canvas, canvas)
+        # --- MEJOR SCROLL CON MOUSE SOLO EN EL CANVAS ---
+        def _on_mousewheel(event):
+            try:
+                if canvas.winfo_exists():
+                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # El canvas ya no existe
+
+        def _on_mousewheel_linux(event):
+            try:
+                if canvas.winfo_exists():
+                    canvas.yview_scroll(int(-1*event.delta), "units")
+            except tk.TclError:
+                pass  # El canvas ya no existe
+
+        # Vincular solo cuando el mouse está sobre el canvas
+        canvas.bind("<Enter>", lambda e: canvas.bind("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind("<MouseWheel>"))
+        canvas.bind("<Enter>", lambda e: canvas.bind("<Button-4>", _on_mousewheel_linux))
+        canvas.bind("<Leave>", lambda e: canvas.unbind("<Button-4>"))
+        canvas.bind("<Enter>", lambda e: canvas.bind("<Button-5>", _on_mousewheel_linux))
+        canvas.bind("<Leave>", lambda e: canvas.unbind("<Button-5>"))
+
+        # --- FIN MEJOR SCROLL ---
 
         # Configuración de columnas para que se adapten al ancho
         scrollable_frame.grid_columnconfigure(0, weight=1, minsize=220)
