@@ -153,6 +153,55 @@ class NutrimentalModule:
         self.parent.hora_entry.config(state="readonly")
         self.parent.hora_entry.grid(row=3, column=1, padx=8, pady=4, sticky="ew")
 
+        # Añadir panel para tipo de muestra
+        tipo_frame = tk.LabelFrame(
+            basic_frame,
+            text="Tipo de Muestra",
+            font=("Segoe UI", 9, "bold"),
+            bg="#ffffff",
+            fg="#0B5394",
+            bd=1,
+            relief="groove"
+        )
+        tipo_frame.grid(row=4, column=0, columnspan=2, sticky="ew", padx=8, pady=4)
+        
+        # Radiobuttons para selección de tipo de muestra
+        self.parent.tipo_muestra = tk.StringVar(value="solida")
+        
+        rb_solida = tk.Radiobutton(
+            tipo_frame,
+            text="Sólida",
+            variable=self.parent.tipo_muestra,
+            value="solida",
+            bg="#ffffff",
+            font=("Segoe UI", 9),
+            fg="#333333"
+        )
+        rb_solida.pack(side="left", padx=10, pady=4)
+        
+        rb_liquida = tk.Radiobutton(
+            tipo_frame,
+            text="Líquida",
+            variable=self.parent.tipo_muestra,
+            value="liquida",
+            bg="#ffffff",
+            font=("Segoe UI", 9),
+            fg="#333333"
+        )
+        rb_liquida.pack(side="left", padx=10, pady=4)
+        
+        # Checkbox para bebidas sin calorías
+        self.parent.bebida_sin_calorias = tk.BooleanVar(value=False)
+        cb_bebida = tk.Checkbutton(
+            tipo_frame,
+            text="Es bebida sin calorías",
+            variable=self.parent.bebida_sin_calorias,
+            bg="#ffffff",
+            font=("Segoe UI", 9),
+            fg="#333333"
+        )
+        cb_bebida.pack(side="left", padx=10, pady=4)
+
     def _create_nutrimental_fields(self, parent):
         """Crear campos nutricionales agrupados y visualmente atractivos"""
         nutri_frame = tk.LabelFrame(
@@ -689,6 +738,20 @@ class NutrimentalModule:
             texto += f"Contenido energético: {resultados['por_envase']['energia_kcal']} kcal\n"
             texto += f"Contenido energético: {resultados['por_envase']['energia_kj']} kJ\n"
 
+        # Agregar información sobre los sellos de advertencia
+        sellos = self._calcular_sellos_advertencia(resultados)
+        texto += "\nSELLOS DE ADVERTENCIA:\n"
+        texto += "-" * 20 + "\n"
+        
+        if any(sellos.values()):
+            if sellos["exceso_calorias"]: texto += "• EXCESO DE CALORÍAS\n"
+            if sellos["exceso_azucares"]: texto += "• EXCESO DE AZÚCARES\n"
+            if sellos["exceso_grasas_saturadas"]: texto += "• EXCESO DE GRASAS SATURADAS\n"
+            if sellos["exceso_grasas_trans"]: texto += "• EXCESO DE GRASAS TRANS\n"
+            if sellos["exceso_sodio"]: texto += "• EXCESO DE SODIO\n"
+        else:
+            texto += "No se requieren sellos de advertencia.\n"
+        
         self.parent.resultados_text.insert("1.0", texto)
         self.parent.resultados_text.config(state="disabled")
 
@@ -934,6 +997,9 @@ class NutrimentalModule:
             ws["H30"] = resultados["por_porcion"].get("sodio", "")
             ws["I30"] = "mg"
 
+            # Añadir sellos de advertencia antes de guardar
+            self._agregar_sellos_advertencia(ws, resultados)
+
             # === Guardar archivo Excel temporal ===
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_excel:
                 wb.save(tmp_excel.name)
@@ -1057,6 +1123,9 @@ class NutrimentalModule:
             ws["H30"] = resultados["por_porcion"].get("sodio", "")
             ws["I30"] = "mg"
 
+            # Añadir sellos de advertencia antes de guardar
+            self._agregar_sellos_advertencia(ws, resultados)
+
             # Crear archivos temporales
             tmp_excel_path = None
             tmp_pdf_path = None
@@ -1178,3 +1247,89 @@ class NutrimentalModule:
         finally:
             if 'tmp_excel_path' in locals() and os.path.exists(tmp_excel_path):
                 os.remove(tmp_excel_path)
+
+    def _calcular_sellos_advertencia(self, resultados):
+        """Calcula qué sellos de advertencia aplican según los criterios de la NOM-051"""
+        sellos = {
+            "exceso_calorias": False,
+            "exceso_azucares": False,
+            "exceso_grasas_saturadas": False,
+            "exceso_grasas_trans": False,
+            "exceso_sodio": False
+        }
+        
+        # Obtener valores necesarios para los cálculos
+        es_liquida = self.parent.tipo_muestra.get() == "liquida"
+        es_bebida_sin_calorias = self.parent.bebida_sin_calorias.get()
+        
+        # Valores por 100g/ml
+        calorias = resultados["por_100g"]["energia_kcal"]
+        azucares = resultados["por_100g"]["azucares"]
+        grasas_saturadas = resultados["por_100g"]["grasa_saturada"]
+        grasas_trans = resultados["por_100g"]["grasa_trans"]  # en mg
+        sodio = resultados["por_100g"]["sodio"]  # en mg
+        
+        # 1. Exceso de calorías
+        if es_liquida and calorias >= 70:
+            sellos["exceso_calorias"] = True
+        elif not es_liquida and calorias >= 275:
+            sellos["exceso_calorias"] = True
+        elif azucares * 4 >= 8:  # Criterio adicional
+            sellos["exceso_calorias"] = True
+        
+        # 2. Exceso de azúcares
+        if (azucares * 4) >= (calorias * 0.1):  # 10% o más de las calorías totales
+            sellos["exceso_azucares"] = True
+        
+        # 3. Exceso de grasas saturadas
+        if (grasas_saturadas * 9) >= (calorias * 0.1):  # 10% o más de las calorías totales
+            sellos["exceso_grasas_saturadas"] = True
+        
+        # 4. Exceso de grasas trans
+        # Convertir mg a g (dividir por 1000) y luego multiplicar por 9
+        if ((grasas_trans / 1000) * 9) >= (calorias * 0.01):  # 1% o más de las calorías totales
+            sellos["exceso_grasas_trans"] = True
+        
+        # 5. Exceso de sodio
+        if sodio >= 300:
+            sellos["exceso_sodio"] = True
+        elif sodio >= calorias:  # Más mg de sodio que kcal
+            sellos["exceso_sodio"] = True
+        elif es_bebida_sin_calorias and sodio >= 45:
+            sellos["exceso_sodio"] = True
+        
+        return sellos
+
+    def _agregar_sellos_advertencia(self, ws, resultados):
+        """Agrega sellos de advertencia al worksheet según los resultados calculados"""
+        from openpyxl.drawing.image import Image
+        
+        # Calcular qué sellos aplican
+        sellos = self._calcular_sellos_advertencia(resultados)
+        
+        # CORREGIR RUTA: Las imágenes están en img/Sellos/
+        ruta_base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "img", "Sellos")
+        
+        # CORREGIR CELDAS según especificaciones
+        sellos_config = {
+            "exceso_azucares": {"imagen": "azucares.jpg", "celda": "M44"},
+            "exceso_calorias": {"imagen": "calorias.jpg", "celda": "O44"},
+            "exceso_grasas_saturadas": {"imagen": "saturadas.jpg", "celda": "Q44"},
+            "exceso_sodio": {"imagen": "sodio.jpg", "celda": "M46"},
+            "exceso_grasas_trans": {"imagen": "trans.jpg", "celda": "O46"}
+        }
+        
+        # Agregar imágenes según corresponda
+        for sello_key, aplica in sellos.items():
+            if aplica and sello_key in sellos_config:
+                ruta_imagen = os.path.join(ruta_base, sellos_config[sello_key]["imagen"])
+                if os.path.exists(ruta_imagen):
+                    img = Image(ruta_imagen)
+                    # Ajustar tamaño de la imagen (ancho x alto en píxeles)
+                    img.width = 80
+                    img.height = 80
+                    # Agregar a la celda correspondiente
+                    celda = sellos_config[sello_key]["celda"]
+                    ws.add_image(img, celda)
+                else:
+                    print(f"ADVERTENCIA: No se encontró la imagen {ruta_imagen}")

@@ -1,0 +1,17 @@
+Criterios para la aplicación de los sellos de advertencia (exceso de)
+Primero se debe preguntar al inicio si “¿la muestra se considera líquida o sólida?” ya que los criterios cambian en cada caso.
+ 
+Aplica el sello EXCESO DE CALORIAS en muestras sólidas solo si el contenido de calorías (kcal) en 100g de porción es igual o mayor a 275 kcal.
+Aplica el sello EXCESO DE CALORIAS en muestras líquidas solo si el contenido de calorías en 100 mL es igual o mayor a 70 kcal.
+O también cuando al multiplicar los g de azúcares (en 100g) x 4 para convertir a calorías, el valor es igual o mayor a 8 kcal.
+ 
+Aplica el sello EXCESO DE AZÚCARES de igual forma para muestras líquidas o sólidas cuando al multiplicar los g de azúcares (en 100g) x 4 para convertir a calorías, el valor es igual o mayor al 10% de las calorías en 100g o 100mL de producto.
+ 
+Aplica el sello EXCESO DE GRASAS SATURADAS de igual forma para muestras líquidas o sólidas cuando al multiplicar los g de grasa saturada (en 100g) x 9 para convertir a calorías, el valor es igual o mayor al 10% de las calorías en 100g o 100mL de producto.
+ 
+Aplica el sello EXCESO DE GRASAS TRANS de igual forma para muestras líquidas o sólidas cuando al multiplicar los miligramos mg de grasa trans (en 100g) x 9 para convertir a calorías, el valor es igual o mayor al 1% de las calorías en 100g o 100mL de producto.
+ 
+Aplica el sello EXCESO DE SODIO de igual forma para muestras líquidas o sólidas cuando el contenido de sodio en 100g o 100ml de producto es igual o mayor a 300 mg.
+O también cuando los mg de sodio sean iguales o mayores a las kcalorías en 100g o 100ml de producto es decir, que haya más de 1mg de sodio por cada kcaloría. Ejemplo: el contenido de sodio es 250mg. Es un valor menor a 275mg por lo que no cumple el primer criterio, pero las calorías en 100g de producto son 190kcal, entonces, 250mg de sodio es mayor a 190 kcal, hay 250mg sodio/190kcal= 1.31 mg de sodio por cada kcal, lo cual cumple el segundo criterio y si aplica el sello de EXCESO DE SODIO.
+****Solo en el caso de bebidas sin calorías hay un criterio que dice que si el contenido de sodio es igual o mayor a 45 mg si aplica el sello de EXCESO DE SODIO.****
+¿Cómo se podrá identificar si hay que aplicar este último criterio a la muestra? Tal vez preguntando desde el inicio “¿Esta muestra es una bebida sin calorías?” y si la respuesta es si, que se active la evaluación de este criterio.
