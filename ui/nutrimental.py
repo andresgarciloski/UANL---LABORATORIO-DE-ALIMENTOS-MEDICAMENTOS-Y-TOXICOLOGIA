@@ -9,6 +9,25 @@ from core.auth import agregar_historial
 from ui.base_interface import bind_mousewheel
 import tempfile
 
+def escribir_celda_segura(ws, celda, valor):
+    """Escribe en una celda de forma segura incluso si es parte de una combinada"""
+    # Obtener coordenadas de la celda
+    if isinstance(celda, str):
+        coord = celda
+    else:
+        coord = celda.coordinate
+    
+    # Comprobar si la celda está en un rango combinado
+    for rango in ws.merged_cells.ranges:
+        if coord in rango:
+            # Si está en un rango combinado, usar la celda principal (esquina superior izquierda)
+            celda_principal = ws.cell(row=rango.min_row, column=rango.min_col)
+            celda_principal.value = valor
+            return
+    
+    # Si no es una celda combinada, escribir normalmente
+    ws[coord] = valor
+
 class NutrimentalModule:
     def __init__(self, parent_window):
         self.parent = parent_window
@@ -42,19 +61,26 @@ class NutrimentalModule:
             except tk.TclError:
                 pass  # El canvas ya no existe
 
-        def _on_mousewheel_linux(event):
+        def _on_mousewheel_linux_up(event):
             try:
                 if canvas.winfo_exists():
-                    canvas.yview_scroll(int(-1*event.delta), "units")
+                    canvas.yview_scroll(-1, "units")  # Scroll hacia arriba
+            except tk.TclError:
+                pass  # El canvas ya no existe
+
+        def _on_mousewheel_linux_down(event):
+            try:
+                if canvas.winfo_exists():
+                    canvas.yview_scroll(1, "units")  # Scroll hacia abajo
             except tk.TclError:
                 pass  # El canvas ya no existe
 
         # Vincular solo cuando el mouse está sobre el canvas
         canvas.bind("<Enter>", lambda e: canvas.bind("<MouseWheel>", _on_mousewheel))
         canvas.bind("<Leave>", lambda e: canvas.unbind("<MouseWheel>"))
-        canvas.bind("<Enter>", lambda e: canvas.bind("<Button-4>", _on_mousewheel_linux))
+        canvas.bind("<Enter>", lambda e: canvas.bind("<Button-4>", _on_mousewheel_linux_up))
         canvas.bind("<Leave>", lambda e: canvas.unbind("<Button-4>"))
-        canvas.bind("<Enter>", lambda e: canvas.bind("<Button-5>", _on_mousewheel_linux))
+        canvas.bind("<Enter>", lambda e: canvas.bind("<Button-5>", _on_mousewheel_linux_down))
         canvas.bind("<Leave>", lambda e: canvas.unbind("<Button-5>"))
 
         # --- FIN MEJOR SCROLL ---
@@ -274,11 +300,12 @@ class NutrimentalModule:
             datos_basicos = self.parent.ultimo_calculo["datos_basicos"]
 
             # Llenar datos en la plantilla Excel
-            ws["E17"] = entrada.get("porcion", "")
-            ws["E18"] = round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else ""
-            ws["F19"] = resultados.get("por_envase", {}).get("energia_kcal", "")
-            ws["F12"] = entrada.get("contenido_neto", "")
-            ws["C8"] = f"{nombre_actual} - {descripcion_actual}"
+            escribir_celda_segura(ws, "E17", f"{entrada.get('porcion', '')} g")
+            escribir_celda_segura(ws, "D18", round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else "")
+            escribir_celda_segura(ws, "E18", "Porciones por envase:")
+            escribir_celda_segura(ws, "F19", f"{resultados.get('por_envase', {}).get('energia_kcal', '')} kcal")
+            escribir_celda_segura(ws, "F12", f"{entrada.get('contenido_neto', '')} g")
+            escribir_celda_segura(ws, "C8", f"{nombre_actual} - {descripcion_actual}")
 
             # Por 100g/mL
             ws["F21"] = resultados["por_100g"].get("energia_kcal", "")
@@ -491,27 +518,30 @@ class NutrimentalModule:
             return int(round(valor / 10) * 10)
 
     def _calcular_nutrimental(self, data):
-        """Cálculo nutrimental conforme NOM-051 y reglas del archivo info.txt"""
-
-        # 1. Redondeo matemático a entero para los valores base (NO DECIMALES)
-        proteina_100g = int(round(data["proteina"]))
-        grasa_total_100g = int(round(data["grasa_total"]))
-        fibra_dietetica_100g = int(round(data["fibra_dietetica"]))
-        azucares_100g = int(round(data["azucares"]))
-        azucares_anadidos_100g = int(round(data["azucares_anadidos"]))
-
-        # 2. Grasa saturada (redondeo matemático a entero)
-        grasa_saturada_100g = int(round(grasa_total_100g * (data["acidos_grasos_saturados"] / 100)))
-
-        # 3. Hidratos de carbono totales y disponibles
-        hidratos_carbono_totales_100g = 100 - (data["humedad"] + data["cenizas"] + proteina_100g + grasa_total_100g)
-        hidratos_carbono_totales_100g = max(0, int(round(hidratos_carbono_totales_100g)))
-        carbohidratos_disponibles_100g = hidratos_carbono_totales_100g - fibra_dietetica_100g
-        carbohidratos_disponibles_100g = max(0, int(round(carbohidratos_disponibles_100g)))
-
-        # 4. Sodio y grasas trans (mg/100g), redondeo NOM-051, NO DECIMALES
+        """Cálculo nutrimental conforme NOM-051"""
+        
+        # 1. Aplicar reglas de redondeo para valores base
+        proteina_100g = self._aplicar_redondeo_nutrientes(data["proteina"])
+        grasa_total_100g = self._aplicar_redondeo_nutrientes(data["grasa_total"])
+        fibra_dietetica_100g = self._aplicar_redondeo_nutrientes(data["fibra_dietetica"])
+        azucares_100g = self._aplicar_redondeo_nutrientes(data["azucares"])
+        azucares_anadidos_100g = self._aplicar_redondeo_nutrientes(data["azucares_anadidos"])
+        
+        # 2. Grasa saturada 
+        grasa_saturada_100g = self._aplicar_redondeo_nutrientes(
+            grasa_total_100g * (data["acidos_grasos_saturados"] / 100)
+        )
+        
+        # 3. Hidratos de carbono
+        hidratos_carbono_totales_100g = max(0, 100 - (
+            data["humedad"] + data["cenizas"] + proteina_100g + grasa_total_100g
+        ))
+        carbohidratos_disponibles_100g = max(0, hidratos_carbono_totales_100g - fibra_dietetica_100g)
+        
+        # 4. Sodio y grasas trans 
         sodio_100g = self._aplicar_regla_redondeo_sodio(data["sodio"])
         grasa_trans_100g = self._aplicar_regla_redondeo_sodio(data["grasa_trans"])
+        
         # CORRECTO: usar el valor original para la regla de 3 y luego redondear
         grasa_trans_porcion = self._aplicar_regla_redondeo_sodio(data["grasa_trans"] * data["porcion"] / 100)
 
@@ -851,13 +881,14 @@ class NutrimentalModule:
             datos_basicos = self.parent.ultimo_calculo["datos_basicos"]
 
             # === Valores generales ===
-            ws["E17"] = entrada.get("porcion", "")
-            ws["E18"] = round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else ""
-            ws["F19"] = resultados.get("por_envase", {}).get("energia_kcal", "")
-            ws["F12"] = entrada.get("contenido_neto", "")
+            escribir_celda_segura(ws, "E17", f"{entrada.get('porcion', '')} g")
+            escribir_celda_segura(ws, "D18", round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else "")
+            escribir_celda_segura(ws, "E18", "Porciones por envase:")
+            escribir_celda_segura(ws, "F19", f"{resultados.get('por_envase', {}).get('energia_kcal', '')} kcal")
+            escribir_celda_segura(ws, "F12", f"{entrada.get('contenido_neto', '')} g")
             nombre_muestra = datos_basicos.get("nombre", "")
             descripcion = datos_basicos.get("descripcion", "")
-            ws["C8"] = f"{nombre_muestra} - {descripcion}"
+            escribir_celda_segura(ws, "C8", f"{nombre_muestra} - {descripcion}")
 
             # === Por 100 mL ===
             ws["F21"] = resultados["por_100g"].get("energia_kcal", "")
@@ -975,11 +1006,12 @@ class NutrimentalModule:
             datos_basicos = self.parent.ultimo_calculo["datos_basicos"]
 
             # Llenar datos en la plantilla Excel
-            ws["E17"] = entrada.get("porcion", "")
-            ws["E18"] = round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else ""
-            ws["F19"] = resultados.get("por_envase", {}).get("energia_kcal", "")
-            ws["F12"] = entrada.get("contenido_neto", "")
-            ws["C8"] = f"{nombre_actual} - {descripcion_actual}"
+            escribir_celda_segura(ws, "E17", f"{entrada.get('porcion', '')} g")
+            escribir_celda_segura(ws, "D18", round(resultados.get("porciones_envase", 0), 1) if resultados.get("porciones_envase") else "")
+            escribir_celda_segura(ws, "E18", "Porciones por envase:")
+            escribir_celda_segura(ws, "F19", f"{resultados.get('por_envase', {}).get('energia_kcal', '')} kcal")
+            escribir_celda_segura(ws, "F12", f"{entrada.get('contenido_neto', '')} g")
+            escribir_celda_segura(ws, "C8", f"{nombre_actual} - {descripcion_actual}")
 
             # Por 100g/mL
             ws["F21"] = resultados["por_100g"].get("energia_kcal", "")
@@ -1111,3 +1143,38 @@ class NutrimentalModule:
             messagebox.showerror("Error", "No se encontró la plantilla formato.xlsx. Debe estar en la carpeta principal del programa.")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo completar la exportación:\n{str(e)}")
+
+    def _generar_pdf_desde_excel(self, wb, nombre_archivo, guardar_dialogo=True):
+        """Función centralizada para generar PDF desde Excel"""
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_excel:
+                wb.save(tmp_excel.name)
+                tmp_excel_path = tmp_excel.name
+                
+            import win32com.client
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Visible = False
+            wb_pdf = excel.Workbooks.Open(tmp_excel_path)
+            
+            if guardar_dialogo:
+                ruta_guardado_pdf = filedialog.asksaveasfilename(
+                    defaultextension=".pdf",
+                    initialfile=nombre_archivo,
+                    filetypes=[("Archivos PDF", "*.pdf")]
+                )
+                if not ruta_guardado_pdf:
+                    return None, "Cancelado"
+            else:
+                ruta_guardado_pdf = os.path.join(tempfile.gettempdir(), nombre_archivo)
+                
+            wb_pdf.ExportAsFixedFormat(0, ruta_guardado_pdf)
+            wb_pdf.Close(False)
+            excel.Quit()
+            
+            with open(ruta_guardado_pdf, "rb") as f:
+                archivo_binario = f.read()
+                
+            return archivo_binario, ruta_guardado_pdf
+        finally:
+            if 'tmp_excel_path' in locals() and os.path.exists(tmp_excel_path):
+                os.remove(tmp_excel_path)
