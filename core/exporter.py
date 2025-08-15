@@ -264,9 +264,9 @@ class NutrimentalExporter:
             messagebox.showwarning("Advertencia", "Primero debe calcular la tabla nutrimental")
             return
         try:
-            plantilla = "formato.xlsx"
+            plantilla = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates", "formato.xlsx"))
             if not os.path.exists(plantilla):
-                raise FileNotFoundError("Plantilla formato.xlsx no encontrada.")
+                raise FileNotFoundError(f"Plantilla no encontrada: {plantilla}")
             wb = load_workbook(plantilla)
             resultados = self.parent.ultimo_calculo["resultados"]
             entrada = self.parent.ultimo_calculo["datos_entrada"]
@@ -316,9 +316,9 @@ class NutrimentalExporter:
             if usuario_id is None:
                 messagebox.showwarning("Advertencia", "No se pudo guardar en la base de datos: Usuario no válido")
                 return
-            plantilla = "formato.xlsx"
+            plantilla = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates", "formato.xlsx"))
             if not os.path.exists(plantilla):
-                raise FileNotFoundError("Plantilla formato.xlsx no encontrada.")
+                raise FileNotFoundError(f"Plantilla no encontrada: {plantilla}")
             wb = load_workbook(plantilla)
             resultados = self.parent.ultimo_calculo["resultados"]
             entrada = self.parent.ultimo_calculo["datos_entrada"]
