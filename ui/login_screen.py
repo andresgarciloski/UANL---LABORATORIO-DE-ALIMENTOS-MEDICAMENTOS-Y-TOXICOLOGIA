@@ -205,9 +205,9 @@ class LoginWindow(tk.Tk):
         if isinstance(result, tuple) and result[0] is True:
             rol = result[1]
             if rol == "usuario":
-                self.destroy()
-                app = MainInterface(username=username, rol=rol)
-                app.mainloop()
+                # Guardar resultado y salir del mainloop para que main.py abra la app principal
+                self.login_info = {"username": username, "rol": rol}
+                self.quit()
             else:
                 messagebox.showerror("Acceso denegado", "Solo los usuarios pueden acceder desde este login.")
         else:
@@ -218,9 +218,9 @@ class LoginWindow(tk.Tk):
         password = self.admin_password_entry.get()
         result = verificar_login(username, password)
         if isinstance(result, tuple) and result[0] is True and result[1] == "admin":
-            self.destroy()
-            app = MainInterfaceAdmin(username=username, rol="admin")
-            app.mainloop()
+            # Guardar resultado y salir del mainloop para que main.py abra la interfaz admin
+            self.login_info = {"username": username, "rol": "admin"}
+            self.quit()
         else:
             messagebox.showerror("Acceso denegado", "Solo los administradores pueden acceder aquí.")
 

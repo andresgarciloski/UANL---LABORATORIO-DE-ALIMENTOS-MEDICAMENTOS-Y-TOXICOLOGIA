@@ -2,3 +2,24 @@
 
 11.7.2025 - Grasas Trans que el programa lo solicite por mg or 100g igual que el sodio, el calculo que lo haga igual que el de la grasa sencilla en lugar de gramos será miligramos. Azucares añadidios que los pida por % y que el calculo lo haga igual que para azucares sencillos. Si el sodio es menor a 5 mg se expresa como 0.
 Porciones por envase, agregar cuantas porciones hay en un envase.**
+
+Reglas de redondeo en los resultados de la tabla 
+Regla de redondeo de azucares, en calculo de tabla y gcarbohidratos 
+
+POR 100g/mL:
+--------------------
+Proteína: 1.0 g
+Grasa Total: 0 g
+Grasa Saturada: 0 g
+Grasas trans: 0 mg
+Carbohidratos Disponibles: 5.170000000000002 g
+Azúcares: 3.5 g
+Azúcares añadidos: 3.5 g
+Fibra Dietética: 0 g
+Sodio: 1370 mg
+Contenido energético: 25 kcal
+Contenido energético: 105 kJ
+
+
+Sello de calorias. 
+
