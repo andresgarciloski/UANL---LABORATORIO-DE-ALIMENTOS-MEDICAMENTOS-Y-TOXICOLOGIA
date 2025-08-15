@@ -79,6 +79,12 @@ class NutrimentalModule:
         self._create_nutrimental_fields(center_col)
         self._create_results_area(right_col)
 
+        # attach trace so labels update when tipo_muestra changes
+        try:
+            self._attach_tipo_trace()
+        except Exception:
+            pass
+
         buttons_frame = tk.Frame(scrollable_frame, bg="#f4f8fc")
         buttons_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10,10))
         buttons_container = tk.Frame(buttons_frame, bg="#f4f8fc")
@@ -125,25 +131,44 @@ class NutrimentalModule:
         nutri_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
         nutri_frame.grid_columnconfigure(1, weight=1)
         self.parent.nutri_vars = {}
+        # almacén de labels para poder actualizarlos dinámicamente según tipo (g / mL)
+        self.parent.nutri_label_widgets = {}
+
+        # Determinar si ajustar etiquetas por sólido / líquido (inicial)
+        tipo_var = getattr(self.parent, "tipo_muestra", None)
+        es_liquida = False
+        try:
+            if tipo_var is not None and tipo_var.get() == "liquida":
+                es_liquida = True
+        except Exception:
+            es_liquida = False
+
+        # sufijos dinámicos para etiquetas: por 100 g o por 100 mL (la unidad de referencia)
+        ref_unit = "100 mL" if es_liquida else "100 g"
+        suf_g = f"(g/{ref_unit})"
+        suf_mg = f"(mg/{ref_unit})"
+
         nutri_fields = [
             ("humedad", "Humedad (%)"),
             ("cenizas", "Cenizas (%)"),
-            ("proteina", "Proteína (g/100g)"),
-            ("grasa_total", "Grasa total (g/100g)"),
-            ("grasa_trans", "Grasas trans (mg/100g)"),
-            ("fibra_dietetica", "Fibra dietética (g/100g)"),
-            ("azucares", "Azúcares totales (g/100g)"),
-            ("azucares_anadidos", "Azúcares añadidos (g/100g)"),
-            ("sodio", "Sodio (mg/100g)"),
-            ("acidos_grasos_saturados", "Ácidos grasos saturados (g/100g)"),
-            ("porcion", "Tamaño de porción (g o mL)"),
+            ("proteina", f"Proteína {suf_g}"),
+            ("grasa_total", f"Grasa total {suf_g}"),
+            ("grasa_trans", f"Grasas trans {suf_mg}"),
+            ("fibra_dietetica", f"Fibra dietética {suf_g}"),
+            ("azucares", f"Azúcares totales {suf_g}"),
+            ("azucares_anadidos", f"Azúcares añadidos {suf_g}"),
+            ("sodio", f"Sodio {suf_mg}"),
+            ("acidos_grasos_saturados", f"Ácidos grasos saturados {suf_g}"),
+            ("porcion", f"Tamaño de porción (g o mL)"),
             ("contenido_neto", "Contenido neto del envase (g o mL, opcional)")
         ]
-        for i, (key, label) in enumerate(nutri_fields):
-            tk.Label(nutri_frame, text=label, bg="#ffffff", font=("Segoe UI",9,"bold"), fg="#0B5394").grid(row=i, column=0, sticky="w", padx=8, pady=3)
+        for i, (key, label_text) in enumerate(nutri_fields):
+            lbl = tk.Label(nutri_frame, text=label_text, bg="#ffffff", font=("Segoe UI",9,"bold"), fg="#0B5394")
+            lbl.grid(row=i, column=0, sticky="w", padx=8, pady=3)
             entry = tk.Entry(nutri_frame, font=("Segoe UI",9), relief="solid", bd=1)
             entry.grid(row=i, column=1, padx=8, pady=3, sticky="ew")
             self.parent.nutri_vars[key] = entry
+            self.parent.nutri_label_widgets[key] = lbl
 
     def _create_results_area(self, parent):
         self.parent.resultados_frame = tk.LabelFrame(parent, text="Resultados", font=("Segoe UI",11,"bold"),
@@ -371,11 +396,23 @@ class NutrimentalModule:
     def _mostrar_resultados(self, resultados):
         self.parent.resultados_text.config(state="normal")
         self.parent.resultados_text.delete("1.0","end")
+
+        # Determinar unidad de referencia para encabezado según tipo de muestra
+        tipo_var = getattr(self.parent, "tipo_muestra", None)
+        es_liquida = False
+        try:
+            if tipo_var is not None and tipo_var.get() == "liquida":
+                es_liquida = True
+        except Exception:
+            es_liquida = False
+        unidad_ref = "mL" if es_liquida else "g"
+
         texto = "TABLA NUTRIMENTAL MEXICANA\n" + "="*50 + "\n\n"
         if "porciones_envase" in resultados and resultados["porciones_envase"] is not None:
             p = resultados["porciones_envase"]
             texto += f"Porciones por envase: {int(p) if p==int(p) else f'{p:.1f}'}\n\n"
-        texto += "POR 100g/mL:\n" + "-"*20 + "\n"
+
+        texto += f"POR 100 {unidad_ref}:\n" + "-"*20 + "\n"
         orden_campos = [
             ("proteina","Proteína","g"),
             ("grasa_total","Grasa Total","g"),
@@ -415,3 +452,62 @@ class NutrimentalModule:
             texto += "No se requieren sellos de advertencia.\n"
         self.parent.resultados_text.insert("1.0", texto)
         self.parent.resultados_text.config(state="disabled")
+
+    def _get_label_text(self, key, es_liquida):
+        """Devuelve el texto correcto para la etiqueta 'key' según si es líquida."""
+        ref_unit = "100 mL" if es_liquida else "100 g"
+        suf_g = f"(g/{ref_unit})"
+        suf_mg = f"(mg/{ref_unit})"
+        mapping = {
+            "humedad": "Humedad (%)",
+            "cenizas": "Cenizas (%)",
+            "proteina": f"Proteína {suf_g}",
+            "grasa_total": f"Grasa total {suf_g}",
+            "grasa_trans": f"Grasas trans {suf_mg}",
+            "fibra_dietetica": f"Fibra dietética {suf_g}",
+            "azucares": f"Azúcares totales {suf_g}",
+            "azucares_anadidos": f"Azúcares añadidos {suf_g}",
+            "sodio": f"Sodio {suf_mg}",
+            "acidos_grasos_saturados": f"Ácidos grasos saturados {suf_g}",
+            "porcion": f"Tamaño de porción ({'mL' if es_liquida else 'g'})",
+            "contenido_neto": f"Contenido neto del envase ({'mL' if es_liquida else 'g'}, opcional)"
+        }
+        return mapping.get(key, key)
+
+    def _update_unit_labels(self):
+        """Actualiza las etiquetas de unidad en la UI según self.parent.tipo_muestra."""
+        tipo_var = getattr(self.parent, "tipo_muestra", None)
+        es_liquida = False
+        try:
+            if tipo_var is not None and tipo_var.get() == "liquida":
+                es_liquida = True
+        except Exception:
+            es_liquida = False
+        labels = getattr(self.parent, "nutri_label_widgets", {})
+        for key, lbl in labels.items():
+            try:
+                lbl.config(text=self._get_label_text(key, es_liquida))
+            except Exception:
+                pass
+
+    def _attach_tipo_trace(self):
+        """Agrega trace para que al cambiar el tipo (sólida/liquida) se actualicen las etiquetas."""
+        tipo_var = getattr(self.parent, "tipo_muestra", None)
+        if tipo_var is None:
+            return
+        # limpias traces previos si existen (compatibilidad)
+        try:
+            if hasattr(tipo_var, "trace_vinfo"):
+                pass
+        except Exception:
+            pass
+        # trace_add es preferible en py3.7+, fallback a trace
+        try:
+            tipo_var.trace_add("write", lambda *args: self._update_unit_labels())
+        except Exception:
+            try:
+                tipo_var.trace("w", lambda *args: self._update_unit_labels())
+            except Exception:
+                pass
+        # actualizar ahora mismo para reflejar estado inicial
+        self._update_unit_labels()

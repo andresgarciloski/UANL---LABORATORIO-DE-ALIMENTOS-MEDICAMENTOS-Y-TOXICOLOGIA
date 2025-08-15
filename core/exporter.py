@@ -370,6 +370,15 @@ class NutrimentalExporter:
             nombre_limpio = "".join(c for c in nombre_actual if c.isalnum() or c in (' ', '-', '_')).rstrip().replace(' ','_') or "Tabla_Nutrimental"
             timestamp = fecha_actual.strftime("%Y-%m-%d_%H%M%S")
             nombre_predeterminado = f"{nombre_limpio}_{timestamp}.xlsx"
+
+            # Determinar encabezado según tipo de muestra
+            tipo_var = getattr(self.parent, "tipo_muestra", None)
+            try:
+                es_liquida = (tipo_var is not None and tipo_var.get() == "liquida")
+            except Exception:
+                es_liquida = False
+            header_por100 = "Por 100 mL" if es_liquida else "Por 100 g"
+
             datos_excel = []
             datos_excel.append(["INFORMACIÓN BÁSICA","",""])
             datos_excel.append(["# de muestra", nombre_actual, ""])
@@ -383,15 +392,19 @@ class NutrimentalExporter:
             for key, value in self.parent.ultimo_calculo["datos_entrada"].items():
                 nombre_campo = key.replace('_',' ').title()
                 if key in ("sodio","grasa_trans"):
-                    datos_excel.append([f"{nombre_campo} (mg/100g)", value, ""])
+                    unidad_entrada = f"mg/{'100 mL' if es_liquida else '100 g'}"
+                    datos_excel.append([f"{nombre_campo} ({unidad_entrada})", value, ""])
                 elif key == "porcion":
-                    datos_excel.append([f"{nombre_campo} (g)", value, ""])
+                    unidad_porcion = "mL" if es_liquida else "g"
+                    datos_excel.append([f"{nombre_campo} ({unidad_porcion})", value, ""])
                 elif key == "contenido_neto":
-                    datos_excel.append([f"{nombre_campo} (g/mL)", value, ""])
+                    unidad_cn = "mL" if es_liquida else "g"
+                    datos_excel.append([f"{nombre_campo} ({unidad_cn})", value, ""])
                 else:
-                    datos_excel.append([f"{nombre_campo} (%)", value, ""])
+                    unidad_pct = f"%/{'100 mL' if es_liquida else '100 g'}"
+                    datos_excel.append([f"{nombre_campo} ({unidad_pct})", value, ""])
             datos_excel.append(["","",""])
-            datos_excel.append(["TABLA NUTRIMENTAL MEXICANA","Por 100g/mL","Por Porción"])
+            datos_excel.append(["TABLA NUTRIMENTAL MEXICANA", header_por100, "Por Porción"])
             resultados = self.parent.ultimo_calculo["resultados"]
             if "porciones_envase" in resultados and resultados["porciones_envase"] is not None:
                 datos_excel.append(["Porciones por envase", resultados["porciones_envase"], ""])
