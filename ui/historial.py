@@ -1,138 +1,145 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, ttk
 from PIL import Image, ImageTk
-from tkcalendar import DateEntry
+try:
+    from tkcalendar import DateEntry
+except Exception:
+    DateEntry = None
 import os
 from ui.base_interface import bind_mousewheel
+
+# importar solo funciones del backend
+from core.function_report import (
+    fetch_historial,
+    filter_historial,
+    get_suggested_filename,
+    save_binary_to_path,
+    delete_historial_record,
+    get_username_by_id,
+)
 
 class HistorialModule:
     def __init__(self, parent_window):
         self.parent = parent_window
+        self._icons = {}
 
     def show_historial_section(self):
-        """Mostrar sección de historial"""
-        # Limpiar contenido anterior
+        """Mostrar sección de historial (UI only)"""
         for widget in self.parent.content_frame.winfo_children():
             try:
                 widget.destroy()
             except:
                 pass
 
-        # Canvas y Scrollbar
-        main_canvas = tk.Canvas(self.parent.content_frame, bg="white")
-        main_scrollbar = tk.Scrollbar(self.parent.content_frame, orient="vertical", command=main_canvas.yview)
-        self.historial_table_frame = tk.Frame(main_canvas, bg="white")
+        # contenedor centrado con padding y margen lateral reducido para usar más ancho
+        outer = tk.Frame(self.parent.content_frame, bg="white")
+        outer.pack(expand=True, fill="both", padx=24, pady=24)
 
-        self.historial_table_frame.bind(
+        center_container = tk.Frame(outer, bg="white")
+        # usar relwidth alto para ocupar casi todo el ancho manteniendo espacios laterales
+        center_container.place(relx=0.5, rely=0.02, relwidth=0.96, relheight=0.96, anchor="n")
+
+        # Título centrado
+        title = tk.Label(
+            center_container,
+            text="Historial",
+            font=("Segoe UI", 18, "bold"),
+            fg="#0B5394",
+            bg="white"
+        )
+        title.pack(pady=(6, 12))
+
+        # Canvas para scroll
+        main_canvas = tk.Canvas(center_container, bg="white", highlightthickness=0)
+        main_scrollbar = tk.Scrollbar(center_container, orient="vertical", command=main_canvas.yview)
+        content_frame = tk.Frame(main_canvas, bg="white")
+
+        content_frame.bind(
             "<Configure>",
             lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
         )
 
-        main_canvas.create_window((0, 0), window=self.historial_table_frame, anchor="nw")
+        window_id = main_canvas.create_window((0, 0), window=content_frame, anchor="nw")
         main_canvas.configure(yscrollcommand=main_scrollbar.set)
 
-        # Filtros
-        self._create_filters()
-        
-        # Tabla
-        self._create_table()
+        # Cuando el canvas cambie de tamaño, ajustar el width de la ventana interna para que los widgets ocupen todo el ancho
+        main_canvas.bind("<Configure>", lambda e: main_canvas.itemconfig(window_id, width=e.width))
 
-        # Empaquetar
         main_canvas.pack(side="left", fill="both", expand=True)
         main_scrollbar.pack(side="right", fill="y")
+
         bind_mousewheel(main_canvas, main_canvas)
 
-        # --- MEJOR SCROLL CON MOUSE SOLO EN EL CANVAS ---
-        def _on_mousewheel(event):
-            try:
-                if main_canvas.winfo_exists():
-                    main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-            except tk.TclError:
-                pass
+        # Guardar referencia para métodos
+        self.historial_table_frame = content_frame
+        self.main_canvas = main_canvas
+        self.window_id = window_id
 
-        def _on_mousewheel_linux(event):
-            try:
-                if main_canvas.winfo_exists():
-                    main_canvas.yview_scroll(int(-1*event.delta), "units")
-            except tk.TclError:
-                pass
+        # Controles y tabla
+        self._create_filters()
+        self._create_table()
 
-        main_canvas.bind("<Enter>", lambda e: main_canvas.bind("<MouseWheel>", _on_mousewheel))
-        main_canvas.bind("<Leave>", lambda e: main_canvas.unbind("<MouseWheel>"))
-        main_canvas.bind("<Enter>", lambda e: main_canvas.bind("<Button-4>", _on_mousewheel_linux))
-        main_canvas.bind("<Leave>", lambda e: main_canvas.unbind("<Button-4>"))
-        main_canvas.bind("<Enter>", lambda e: main_canvas.bind("<Button-5>", _on_mousewheel_linux))
-        main_canvas.bind("<Leave>", lambda e: main_canvas.unbind("<Button-5>"))
-        # --- FIN MEJOR SCROLL ---
-
+        # actualizar inicialmente
         self._actualizar_tabla_historial_filtrada()
 
     def _create_filters(self):
-        """Crear filtros de búsqueda"""
+        """Crear controles de filtro (UI only)"""
         filtro_frame = tk.Frame(self.historial_table_frame, bg="white")
-        filtro_frame.grid(row=0, column=0, columnspan=10, sticky="ew", pady=(20, 10), padx=30)
-        self.historial_table_frame.grid_rowconfigure(0, weight=0)
-        self.historial_table_frame.grid_columnconfigure(0, weight=1)
+        filtro_frame.pack(fill="x", pady=(8, 14), padx=12)
 
-        # Título para admin
+        # Encabezado y descripción breve
         if hasattr(self.parent, 'rol') and self.parent.rol == "admin":
-            title_label = tk.Label(
-                filtro_frame, 
-                text="📊 Historial General (Todos los usuarios)", 
-                font=("Segoe UI", 14, "bold"), 
-                fg="#0B5394", 
-                bg="white"
-            )
-            title_label.pack(pady=(0, 10))
+            subtitle = "Historial general (administrador)"
         else:
-            title_label = tk.Label(
-                filtro_frame, 
-                text=f"📊 Mi Historial Personal ({self.parent.username})", 
-                font=("Segoe UI", 14, "bold"), 
-                fg="#0B5394", 
-                bg="white"
-            )
-            title_label.pack(pady=(0, 10))
+            subtitle = f"Mi historial: {self.parent.username}" if getattr(self.parent, "username", None) else "Mi historial"
 
-        # Frame para controles de filtro
-        controls_frame = tk.Frame(filtro_frame, bg="white")
-        controls_frame.pack()
+        lbl_sub = tk.Label(filtro_frame, text=subtitle, bg="white", fg="#0B5394", font=("Segoe UI", 12, "bold"))
+        lbl_sub.pack(anchor="w", pady=(0,8))
 
-        # Inicializar variables si no existen
-        if not hasattr(self, 'nombre_var'):
-            self.nombre_var = tk.StringVar()
-        if not hasattr(self, 'fecha_var'):
-            self.fecha_var = tk.StringVar()
+        controls = tk.Frame(filtro_frame, bg="white")
+        controls.pack(fill="x")
 
-        tk.Label(controls_frame, text="Nombre:", bg="white", font=("Segoe UI", 10)).pack(side="left", padx=(0, 5))
-        nombre_entry = tk.Entry(controls_frame, textvariable=self.nombre_var, width=15, font=("Segoe UI", 10))
-        nombre_entry.pack(side="left", padx=(0, 10))
+        # --- Orden cambiado: Fecha primero, luego Nombre ---
+        # Fecha (DateEntry si está)
+        tk.Label(controls, text="Fecha:", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=4, pady=6)
+        self.fecha_var = getattr(self, "fecha_var", tk.StringVar())
+        if DateEntry is not None:
+            self.fecha_entry = DateEntry(controls, textvariable=self.fecha_var, width=16, date_pattern="yyyy-mm-dd")
+        else:
+            self.fecha_entry = tk.Entry(controls, textvariable=self.fecha_var, width=16)
+        self.fecha_entry.grid(row=0, column=1, sticky="w", padx=4, pady=6)
 
-        tk.Label(controls_frame, text="Fecha:", bg="white", font=("Segoe UI", 10)).pack(side="left", padx=(0, 5))
-        self.fecha_entry = DateEntry(controls_frame, textvariable=self.fecha_var, width=12, date_pattern="yyyy-mm-dd", background="#0B5394", foreground="white", font=("Segoe UI", 10))
-        self.fecha_entry.pack(side="left", padx=(0, 10))
+        # Nombre (ahora a la derecha, con más espacio para expandirse)
+        tk.Label(controls, text="Nombre:", bg="white", font=("Segoe UI", 10)).grid(row=0, column=2, sticky="w", padx=12, pady=6)
+        self.nombre_var = getattr(self, "nombre_var", tk.StringVar())
+        tk.Entry(controls, textvariable=self.nombre_var, width=32, font=("Segoe UI", 10)).grid(row=0, column=3, sticky="we", padx=4, pady=6)
 
-        # NUEVO: Filtro de usuario solo para admin
+        # Usuario (solo admin) - mantener en la fila siguiente para claridad
         if hasattr(self.parent, 'rol') and self.parent.rol == "admin":
-            if not hasattr(self, 'usuario_filtro_var'):
-                self.usuario_filtro_var = tk.StringVar()
-            
-            tk.Label(controls_frame, text="Usuario:", bg="white", font=("Segoe UI", 10)).pack(side="left", padx=(10, 5))
-            usuario_entry = tk.Entry(controls_frame, textvariable=self.usuario_filtro_var, width=15, font=("Segoe UI", 10))
-            usuario_entry.pack(side="left", padx=(0, 10))
+            tk.Label(controls, text="Usuario ID:", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", padx=4, pady=6)
+            self.usuario_filtro_var = getattr(self, "usuario_filtro_var", tk.StringVar())
+            tk.Entry(controls, textvariable=self.usuario_filtro_var, width=18, font=("Segoe UI", 10)).grid(row=1, column=1, sticky="w", padx=4, pady=6)
 
-        tk.Button(controls_frame, text="Filtrar", command=self._actualizar_tabla_historial_filtrada, bg="#0B5394", fg="white", font=("Segoe UI", 10, "bold"), relief="flat", padx=12, pady=2, cursor="hand2").pack(side="left", padx=10)
-        tk.Button(controls_frame, text="Limpiar", command=self._limpiar_filtros, bg="#888", fg="white", font=("Segoe UI", 10), relief="flat", padx=10, pady=2, cursor="hand2").pack(side="left", padx=5)
+        # Botones de acción
+        btn_frame = tk.Frame(filtro_frame, bg="white")
+        btn_frame.pack(anchor="e", pady=(8,0))
+
+        style_btn = {"font": ("Segoe UI", 10, "bold"), "bd": 0, "cursor": "hand2", "padx": 12, "pady": 6}
+        btn_filtrar = tk.Button(btn_frame, text="Filtrar", bg="#0B5394", fg="white", command=self._actualizar_tabla_historial_filtrada, **style_btn)
+        btn_filtrar.pack(side="left", padx=6)
+        btn_limpiar = tk.Button(btn_frame, text="Limpiar", bg="#888888", fg="white", command=self._limpiar_filtros, **style_btn)
+        btn_limpiar.pack(side="left", padx=6)
+
+        # ajustar pesos: hacer que la columna del nombre (3) sea la que se expanda
+        controls.grid_columnconfigure(1, weight=0)   # fecha no se expande
+        controls.grid_columnconfigure(3, weight=1)   # nombre expande
+        controls.grid_columnconfigure(2, weight=0)
 
     def _create_table(self):
-        """Crear tabla de historial"""
         self.tabla_historial_frame = tk.Frame(self.historial_table_frame, bg="white")
-        self.tabla_historial_frame.grid(row=1, column=0, columnspan=10, sticky="nsew", padx=30, pady=20)
-        self.historial_table_frame.grid_rowconfigure(1, weight=1)
-        self.historial_table_frame.grid_columnconfigure(0, weight=1)
+        self.tabla_historial_frame.pack(fill="both", expand=True, padx=12, pady=(6,18))
 
     def _limpiar_filtros(self):
-        """Limpiar filtros"""
         self.nombre_var.set("")
         self.fecha_var.set("")
         if hasattr(self, 'usuario_filtro_var'):
@@ -140,8 +147,7 @@ class HistorialModule:
         self._actualizar_tabla_historial_filtrada()
 
     def _actualizar_tabla_historial_filtrada(self):
-        """Actualizar tabla con filtros aplicados"""
-        # Limpiar tabla anterior
+        """Renderiza la tabla usando funciones del backend (core.function_report)"""
         for widget in self.tabla_historial_frame.winfo_children():
             try:
                 widget.destroy()
@@ -150,290 +156,157 @@ class HistorialModule:
 
         nombre = self.nombre_var.get() if hasattr(self, 'nombre_var') else ""
         fecha = self.fecha_var.get() if hasattr(self, 'fecha_var') else ""
-        usuario_filtro = self.usuario_filtro_var.get() if hasattr(self, 'usuario_filtro_var') else ""
+        usuario_filtro = getattr(self, 'usuario_filtro_var', tk.StringVar()).get() if hasattr(self, 'usuario_filtro_var') else ""
 
         try:
-            # Verificar si el parent tiene el método
-            if not hasattr(self.parent, 'get_usuario_id'):
-                messagebox.showerror("Error", "Método get_usuario_id no disponible")
-                return
-
-            # CAMBIO: Lógica según el rol del usuario
-            if hasattr(self.parent, 'rol') and self.parent.rol == "admin":
-                # Si es admin, mostrar TODO el historial de TODOS los usuarios
-                from core.auth import obtener_historial_completo_admin
-                try:
-                    historial = obtener_historial_completo_admin()
-                except:
-                    # Fallback si no existe la función específica
-                    from core.auth import obtener_historial
-                    historial = obtener_historial()
-            else:
-                # Si es usuario normal, mostrar SOLO su historial
-                usuario_id = self.parent.get_usuario_id()
-                if usuario_id is None:
-                    return  # El error ya se mostró en get_usuario_id
-                
-                from core.auth import obtener_historial_usuario
-                historial = obtener_historial_usuario(usuario_id)
-                
+            historial = fetch_historial(role=getattr(self.parent, 'rol', 'usuario'), get_usuario_id=getattr(self.parent, 'get_usuario_id', None))
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo cargar el historial: {e}")
             historial = []
 
-        # Aplicar filtros
-        filtrado = []
-        for item in historial:
-            try:
-                if len(item) >= 7:
-                    Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item[:7]
-                    
-                    # Filtro por nombre
-                    if nombre and nombre.lower() not in str(Nombre).lower():
-                        continue
-                    
-                    # Filtro por fecha
-                    if fecha and str(Fecha) != fecha:
-                        continue
-                    
-                    # NUEVO: Filtro por usuario (solo para admin)
-                    if (hasattr(self.parent, 'rol') and self.parent.rol == "admin" and 
-                        usuario_filtro and usuario_filtro.lower() not in str(UsuarioId).lower()):
-                        continue
-                    
-                    filtrado.append(item)
-                    
-            except Exception as e:
-                print(f"Error procesando item del historial: {e}")
-                continue
+        filtrado = filter_historial(historial, nombre=nombre, fecha=fecha, usuario_filter=usuario_filtro)
 
-        # CAMBIO: Encabezados según rol
-        if hasattr(self.parent, 'rol') and self.parent.rol == "admin":
-            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Usuario ID", "Usuario", "Archivo", "Descargar", "Eliminar"]
+        # Encabezados según rol
+        if getattr(self.parent, 'rol', '') == "admin":
+            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Usuario ID", "Usuario", "Archivo", "Acciones"]
         else:
-            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Archivo", "Descargar", "Eliminar"]
-            
-        header_bg = "#0B5394"
-        header_fg = "white"
+            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Archivo", "Acciones"]
+
+        # Encabezados estilizados
+        header_frame = tk.Frame(self.tabla_historial_frame, bg="#0B5394")
+        header_frame.pack(fill="x", padx=2)
         for col, h in enumerate(headers):
-            tk.Label(
-                self.tabla_historial_frame, text=h, font=("Segoe UI", 11, "bold"),
-                bg=header_bg, fg=header_fg, padx=8, pady=8, borderwidth=0, relief="flat"
-            ).grid(row=0, column=col, sticky="nsew", padx=1, pady=1)
+            lbl = tk.Label(header_frame, text=h, bg="#0B5394", fg="white", font=("Segoe UI", 10, "bold"), padx=8, pady=8)
+            lbl.grid(row=0, column=col, sticky="nsew", padx=1)
+            header_frame.grid_columnconfigure(col, weight=1, minsize=100)
 
-        # Cargar iconos
-        download_icon = self._load_icon("download.png")
-        trash_icon = self._load_icon("basura.png")
+        body_frame = tk.Frame(self.tabla_historial_frame, bg="white")
+        body_frame.pack(fill="both", expand=True)
 
-        # Filas de datos
-        row_bg1 = "#e6f0fa"
-        row_bg2 = "#f7fbff"
-        
         if not filtrado:
-            # Mostrar mensaje si no hay datos
             no_data_label = tk.Label(
-                self.tabla_historial_frame,
-                text="No se encontraron registros con los filtros aplicados." if (nombre or fecha or usuario_filtro) else 
-                      "No hay registros en el historial." if hasattr(self.parent, 'rol') and self.parent.rol != "admin" else
-                      "No hay registros en la base de datos.",
-                font=("Segoe UI", 12),
+                body_frame,
+                text="No se encontraron registros.",
+                font=("Segoe UI", 11),
                 fg="#666666",
                 bg="white",
                 pady=20
             )
-            no_data_label.grid(row=1, column=0, columnspan=len(headers), pady=20)
-        
-        for row, item in enumerate(filtrado, start=1):
+            no_data_label.pack()
+            return
+
+        # filas
+        for item in filtrado:
             try:
-                if len(item) >= 7:
-                    Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item[:7]
-                    bg = row_bg1 if row % 2 == 1 else row_bg2
-
-                    col_index = 0
-                    
-                    # ID
-                    tk.Label(self.tabla_historial_frame, text=Id, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                    col_index += 1
-                    
-                    # Nombre
-                    tk.Label(self.tabla_historial_frame, text=Nombre, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                    col_index += 1
-                    
-                    # Descripción
-                    tk.Label(self.tabla_historial_frame, text=Descripcion, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4, wraplength=200, justify="left").grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                    col_index += 1
-                    
-                    # Fecha
-                    tk.Label(self.tabla_historial_frame, text=str(Fecha), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                    col_index += 1
-                    
-                    # Hora
-                    tk.Label(self.tabla_historial_frame, text=str(Hora), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                    col_index += 1
-
-                    # CAMBIO: Mostrar información de usuario solo para admin
-                    if hasattr(self.parent, 'rol') and self.parent.rol == "admin":
-                        # Usuario ID
-                        tk.Label(self.tabla_historial_frame, text=str(UsuarioId), bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                        col_index += 1
-                        
-                        # Nombre de usuario (obtener desde la BD)
-                        try:
-                            from core.auth import obtener_username_por_id
-                            username = obtener_username_por_id(UsuarioId)
-                        except:
-                            username = f"Usuario {UsuarioId}"
-                        
-                        tk.Label(self.tabla_historial_frame, text=username, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                        col_index += 1
-
-                    # Archivo
-                    archivo_text = "Sí" if Archivo else "No"
-                    tk.Label(self.tabla_historial_frame, text=archivo_text, bg=bg, font=("Segoe UI", 10), borderwidth=0, relief="flat", padx=8, pady=4).grid(row=row, column=col_index, sticky="nsew", padx=1, pady=1)
-                    col_index += 1
-
-                    # Botón descargar
-                    download_btn = tk.Button(
-                        self.tabla_historial_frame,
-                        text="📥" if download_icon is None else "",
-                        image=download_icon if download_icon else None,
-                        bg=bg,
-                        bd=0,
-                        activebackground="#b3d1f7",
-                        cursor="hand2",
-                        command=lambda archivo=Archivo, nombre=Nombre: self._descargar_archivo(archivo, nombre)
-                    )
-                    download_btn.grid(row=row, column=col_index, padx=4, pady=1)
-                    col_index += 1
-
-                    # Botón eliminar - CAMBIO: Solo permitir eliminar registros propios (o todo si es admin)
-                    can_delete = False
-                    if hasattr(self.parent, 'rol') and self.parent.rol == "admin":
-                        can_delete = True  # Admin puede eliminar cualquier registro
-                    else:
-                        # Usuario normal solo puede eliminar sus propios registros
-                        current_user_id = self.parent.get_usuario_id()
-                        can_delete = (current_user_id == UsuarioId)
-                    
-                    if can_delete:
-                        delete_btn = tk.Button(
-                            self.tabla_historial_frame,
-                            text="🗑" if trash_icon is None else "",
-                            image=trash_icon if trash_icon else None,
-                            bg=bg,
-                            bd=0,
-                            activebackground="#f7bdbd",
-                            cursor="hand2",
-                            command=lambda id_hist=Id: self._eliminar_registro(id_hist)
-                        )
-                    else:
-                        delete_btn = tk.Button(
-                            self.tabla_historial_frame,
-                            text="🚫",
-                            bg=bg,
-                            bd=0,
-                            state="disabled",
-                            cursor="not-allowed"
-                        )
-                    
-                    delete_btn.grid(row=row, column=col_index, padx=4, pady=1)
-
-            except Exception as e:
-                print(f"Error creando fila {row}: {e}")
+                Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item[:7]
+            except Exception:
                 continue
 
-        # Hacer columnas expandibles
-        for col in range(len(headers)):
-            if col == 2:  # Descripción
-                self.tabla_historial_frame.grid_columnconfigure(col, weight=3, minsize=200)
-            elif col == 6 and hasattr(self.parent, 'rol') and self.parent.rol == "admin":  # Usuario
-                self.tabla_historial_frame.grid_columnconfigure(col, weight=2, minsize=100)
+            row_frame = tk.Frame(body_frame, bg="#f7fbff", bd=0, relief="flat")
+            row_frame.pack(fill="x", padx=2, pady=6)
+
+            # Column labels (use grid inside row_frame)
+            col0 = tk.Label(row_frame, text=str(Id), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col0.grid(row=0, column=0, sticky="nsew", padx=8)
+            col1 = tk.Label(row_frame, text=str(Nombre), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col1.grid(row=0, column=1, sticky="nsew", padx=8)
+            col2 = tk.Label(row_frame, text=str(Descripcion), bg="#f7fbff", font=("Segoe UI", 10), anchor="w", wraplength=600, justify="left")
+            col2.grid(row=0, column=2, sticky="nsew", padx=8)
+            col3 = tk.Label(row_frame, text=str(Fecha), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col3.grid(row=0, column=3, sticky="nsew", padx=8)
+            col4 = tk.Label(row_frame, text=str(Hora), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col4.grid(row=0, column=4, sticky="nsew", padx=8)
+
+            col_idx = 5
+            if getattr(self.parent, 'rol', '') == "admin":
+                col_user = tk.Label(row_frame, text=str(UsuarioId), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+                col_user.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
+                username = get_username_by_id(UsuarioId)
+                col_username = tk.Label(row_frame, text=username, bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+                col_username.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
+
+            archivo_text = "Sí" if Archivo else "No"
+            col_archivo = tk.Label(row_frame, text=archivo_text, bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col_archivo.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
+
+            # acciones (descargar/eliminar) en el extremo derecho
+            actions = tk.Frame(row_frame, bg="#f7fbff")
+            actions.grid(row=0, column=col_idx, sticky="e", padx=8)
+
+            btn_desc = tk.Button(actions, text="Descargar", bg="#2d89ef", fg="white", bd=0, cursor="hand2",
+                                 command=lambda archivo=Archivo, nombre=Nombre: self._descargar_archivo(archivo, nombre))
+            btn_desc.pack(side="left", padx=6)
+
+            # determinar permiso para eliminar
+            can_delete = False
+            if getattr(self.parent, 'rol', '') == "admin":
+                can_delete = True
             else:
-                self.tabla_historial_frame.grid_columnconfigure(col, weight=1, minsize=80)
+                current_user_id = self.parent.get_usuario_id() if hasattr(self.parent, 'get_usuario_id') else None
+                can_delete = (current_user_id == UsuarioId)
+
+            if can_delete:
+                btn_del = tk.Button(actions, text="Eliminar", bg="#d9534f", fg="white", bd=0, cursor="hand2",
+                                    command=lambda id_hist=Id: self._eliminar_registro(id_hist))
+            else:
+                btn_del = tk.Button(actions, text="Eliminar", bg="#cccccc", fg="#666666", bd=0, state="disabled")
+            btn_del.pack(side="left", padx=6)
+
+            # configure columns weights inside row_frame
+            for c in range(col_idx + 1):
+                row_frame.grid_columnconfigure(c, weight=1)
 
     def _load_icon(self, filename):
-        """Cargar icono con manejo de errores"""
+        if filename in self._icons:
+            return self._icons[filename]
         try:
             icon_path = os.path.join(os.path.dirname(__file__), "..", "img", filename)
             icon_path = os.path.abspath(icon_path)
-            icon_img = Image.open(icon_path).resize((20, 20), Image.LANCZOS)
+            icon_img = Image.open(icon_path).resize((18, 18), Image.LANCZOS)
             icon = ImageTk.PhotoImage(icon_img)
-            # Guardar referencia para evitar garbage collection
-            if not hasattr(self, '_icons'):
-                self._icons = {}
             self._icons[filename] = icon
             return icon
         except Exception:
             return None
 
     def _descargar_archivo(self, archivo_bin, nombre):
-        """Descargar archivo del historial"""
+        """UI: pide ruta al usuario y guarda usando helper del backend para sugerir nombre."""
         if not archivo_bin:
             messagebox.showwarning("Advertencia", "No hay archivo para descargar.")
             return
-        
+
         try:
-            # Detectar tipo de archivo basado en sus primeros bytes
-            tipo_archivo = ".xlsx"  # Default
-            extension = ".xlsx"
-            
-            # Detectar si es PDF (inicia con %PDF)
-            if archivo_bin[:4] == b'%PDF':
-                tipo_archivo = "PDF"
-                extension = ".pdf"
-            # Detectar si es Excel (XLSX)
-            elif archivo_bin[:2] == b'PK':
-                tipo_archivo = "Excel"
-                extension = ".xlsx"
-                
-            # Limpiar nombre de archivo
-            nombre_limpio = "".join(c for c in str(nombre) if c.isalnum() or c in (' ', '-', '_', '.')).rstrip()
-            if not nombre_limpio:
-                nombre_limpio = "archivo_descargado"
-                
-            # Asegurarse de que tenga la extensión correcta
-            if not nombre_limpio.lower().endswith(extension):
-                nombre_limpio = nombre_limpio + extension
-                
-            # Ubicación de descarga
-            try:
-                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-                if not os.path.exists(desktop):
-                    desktop = os.path.expanduser("~")
-            except:
-                desktop = ""
-                
+            suggested = get_suggested_filename(nombre, archivo_bin)
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            if not os.path.exists(desktop):
+                desktop = os.path.expanduser("~")
+
             file_path = filedialog.asksaveasfilename(
-                title=f"Guardar archivo {tipo_archivo}",
-                initialfile=nombre_limpio,
+                title="Guardar archivo",
+                initialfile=suggested,
                 initialdir=desktop,
-                defaultextension=extension,
-                filetypes=[
-                    ("Archivos PDF", "*.pdf") if tipo_archivo == "PDF" else ("Archivos Excel", "*.xlsx"),
-                    ("Todos los archivos", "*.*")
-                ]
+                defaultextension=os.path.splitext(suggested)[1],
+                filetypes=[("Archivos", "*.*")]
             )
-            
-            if file_path:
-                with open(file_path, "wb") as f:
-                    f.write(archivo_bin)
-                messagebox.showinfo("Éxito", f"Archivo {tipo_archivo} guardado exitosamente:\n{file_path}")
-            else:
+            if not file_path:
                 messagebox.showinfo("Cancelado", "Descarga cancelada por el usuario.")
-                
+                return
+
+            # Guardar
+            save_binary_to_path(archivo_bin, file_path)
+            messagebox.showinfo("Éxito", f"Archivo guardado:\n{file_path}")
+
         except PermissionError:
             messagebox.showerror("Error", "No tienes permisos para escribir en esa ubicación.\nIntenta con otra carpeta.")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo guardar el archivo: {e}")
 
     def _eliminar_registro(self, id_hist):
-        """Eliminar registro del historial"""
-        if not messagebox.askyesno("Eliminar registro", "¿Estás seguro de que deseas eliminar este registro del historial?\n\nEsta acción no se puede deshacer."):
+        """UI: confirma y elimina vía backend"""
+        if not messagebox.askyesno("Eliminar registro", "¿Deseas eliminar este registro?"):
             return
-            
         try:
-            from core.auth import eliminar_historial
-            eliminar_historial(id_hist)
+            delete_historial_record(id_hist)
             messagebox.showinfo("Éxito", "Registro eliminado correctamente.")
             self._actualizar_tabla_historial_filtrada()
         except Exception as e:
