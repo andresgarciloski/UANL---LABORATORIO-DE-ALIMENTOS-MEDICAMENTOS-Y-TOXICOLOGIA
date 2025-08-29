@@ -3,6 +3,12 @@ from tkinter import messagebox  # AGREGAR ESTE IMPORT
 import os
 from PIL import Image, ImageTk, ImageDraw
 
+# Palette taken from provided logo
+_BG = "#F7E8E6"           # soft beige background
+_PRIMARY = "#C62828"      # main red
+_PRIMARY_DARK = "#991F1F" # darker red for active/hover
+_TEXT = "#3B2F2F"         # dark text tone
+
 def bind_mousewheel(widget, canvas):
     """Función para enlazar el scroll del mouse a un canvas solo cuando el mouse está sobre el widget"""
     def _on_mousewheel(event):
@@ -31,7 +37,7 @@ class BaseInterface(tk.Tk):
         super().__init__()
         self.title("UANL FoodLab")
         self.geometry("1000x600")
-        self.configure(bg="white")
+        self.configure(bg=_BG)
         self.username = username
         self.rol = rol
 
@@ -52,7 +58,7 @@ class BaseInterface(tk.Tk):
 
     def create_header(self):
         """Crear header común"""
-        header = tk.Frame(self, bg="#0B5394", height=60)
+        header = tk.Frame(self, bg=_PRIMARY, height=60)
         header.pack(side="top", fill="x")
 
         # Botón del menú lateral
@@ -60,10 +66,10 @@ class BaseInterface(tk.Tk):
             header,
             text="☰",
             font=("Segoe UI", 16, "bold"),
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
             bd=0,
-            activebackground="#073763",
+            activebackground=_PRIMARY_DARK,
             activeforeground="white",
             cursor="hand2",
             command=self.toggle_menu
@@ -74,7 +80,7 @@ class BaseInterface(tk.Tk):
         title = tk.Label(
             header,
             text="UANL FoodLab",
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
             font=("Segoe UI", 16, "bold"),
             padx=10,
@@ -88,13 +94,13 @@ class BaseInterface(tk.Tk):
 
     def create_user_section(self, header):
         """Crear sección de usuario en header"""
-        user_frame = tk.Frame(header, bg="#0B5394")
+        user_frame = tk.Frame(header, bg=_PRIMARY)
         user_frame.pack(side="right", padx=20)
 
         user_label = tk.Label(
             user_frame,
             text=self.username if self.username else "Usuario",
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
             font=("Segoe UI", 12, "bold"),
             padx=10
@@ -115,9 +121,9 @@ class BaseInterface(tk.Tk):
             self.user_btn = tk.Button(
                 user_frame,
                 image=self.user_icon,
-                bg="#0B5394",
+                bg=_PRIMARY,
                 bd=0,
-                activebackground="#0B5394",
+                activebackground=_PRIMARY,
                 cursor="hand2",
                 command=self.show_user_menu
             )
@@ -127,9 +133,9 @@ class BaseInterface(tk.Tk):
             self.user_btn = tk.Button(
                 user_frame,
                 text="👤",
-                bg="#0B5394",
+                bg=_PRIMARY,
                 bd=0,
-                activebackground="#0B5394",
+                activebackground=_PRIMARY,
                 cursor="hand2",
                 command=self.show_user_menu,
                 font=("Segoe UI", 16)
@@ -138,14 +144,14 @@ class BaseInterface(tk.Tk):
 
     def create_content_frame(self):
         """Crear frame de contenido"""
-        self.content_frame = tk.Frame(self, bg="white")
+        self.content_frame = tk.Frame(self, bg=_BG)
         self.content_frame.pack(expand=True, fill="both")
 
     def show_user_menu(self):
         """Mostrar menú de usuario"""
         popup = tk.Toplevel(self)
         popup.overrideredirect(True)
-        popup.configure(bg="white", bd=2, highlightthickness=2, highlightbackground="#0B5394")
+        popup.configure(bg=_BG, bd=2, highlightthickness=2, highlightbackground=_PRIMARY)
 
         # Calcular posición
         main_x = self.winfo_rootx()
@@ -161,20 +167,20 @@ class BaseInterface(tk.Tk):
         tk.Label(
             popup,
             text=self.username if self.username else "Usuario",
-            bg="white",
-            fg="#0B5394",
+            bg=_BG,
+            fg=_PRIMARY,
             font=("Segoe UI", 11, "bold")
         ).pack(pady=(10, 2), padx=10)
 
-        tk.Frame(popup, bg="#0B5394", height=2).pack(fill="x", padx=10, pady=2)
+        tk.Frame(popup, bg=_PRIMARY, height=2).pack(fill="x", padx=10, pady=2)
 
         tk.Button(
             popup,
             text="Cerrar sesión",
             font=("Segoe UI", 11),
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
-            activebackground="#073763",
+            activebackground=_PRIMARY_DARK,
             activeforeground="white",
             relief="flat",
             command=lambda: [popup.destroy(), self.logout()]
