@@ -150,7 +150,7 @@ class NutrimentalExporter:
         porcion_val = entrada.get("porcion", "")
         escribir_celda_segura(ws, "F17", f"{porcion_val} {unidad}" if porcion_val != "" else "")
 
-        # Porciones por envase en F18 (escribe sólo la celda destino), sin limpiar columna C
+        # Porciones por envase en F18 (sin unidad para coincidir con vista previa)
         porciones_envase = resultados.get("porciones_envase", None)
         if porciones_envase is not None and porciones_envase != "":
             try:
@@ -158,15 +158,21 @@ class NutrimentalExporter:
                 porciones_display = int(pv) if pv.is_integer() else round(pv, 1)
             except Exception:
                 porciones_display = porciones_envase
-            escribir_celda_segura(ws, "F18", f"{porciones_display} {unidad}")
+            escribir_celda_segura(ws, "F18", f"{porciones_display}")
         else:
             escribir_celda_segura(ws, "F18", "")
 
         # NO limpiar celdas de la columna C ni otras etiquetas de la plantilla
         # (anteriormente se estaban borrando C17/C18 y eso eliminaba etiquetas)
 
-        # Contenido energético por envase y contenido neto con unidad (F19 y F12)
-        escribir_celda_segura(ws, "F19", f"{resultados.get('por_envase', {}).get('energia_kcal','')} kcal")
+        # Contenido energético por envase (solo número) y contenido neto con unidad (F19 y F12)
+        energia_envase = resultados.get('por_envase', {}).get('energia_kcal','')
+        try:
+            if energia_envase != '':
+                energia_envase = int(float(energia_envase))
+        except Exception:
+            pass
+        escribir_celda_segura(ws, "F19", energia_envase)
         contenido_neto = entrada.get("contenido_neto", "")
         escribir_celda_segura(ws, "F12", f"{contenido_neto} {unidad}" if contenido_neto != "" else "")
 
@@ -198,11 +204,24 @@ class NutrimentalExporter:
             ("H29", p.get("fibra_dietetica", ""), "I29", "g"),
             ("H30", p.get("sodio", ""), "I30", "mg"),
         ]
-        for cel_val_100, val100, cel_unit, unit in mappings:
+        def _as_int_str(v):
             try:
-                escribir_celda_segura(ws, cel_val_100, val100)
+                return str(int(float(v)))
             except Exception:
-                ws[cel_val_100] = val100
+                return v if v is not None else ""
+        for cel_val_100, val100, cel_unit, unit in mappings:
+            val_fmt = _as_int_str(val100)
+            # escribir y forzar formato entero (sin decimales) en la celda de valor
+            try:
+                escribir_celda_segura(ws, cel_val_100, val_fmt)
+            except Exception:
+                ws[cel_val_100] = val_fmt
+            try:
+                cell_obj = ws[cel_val_100]
+                cell_obj.number_format = '0'
+            except Exception:
+                pass
+            # unidad en la celda contigua
             try:
                 ws[cel_unit] = unit
             except Exception:
@@ -407,7 +426,13 @@ class NutrimentalExporter:
             datos_excel.append(["TABLA NUTRIMENTAL MEXICANA", header_por100, "Por Porción"])
             resultados = self.parent.ultimo_calculo["resultados"]
             if "porciones_envase" in resultados and resultados["porciones_envase"] is not None:
-                datos_excel.append(["Porciones por envase", resultados["porciones_envase"], ""])
+                # Formato igual que en la vista: entero si es entero, 1 decimal si no
+                try:
+                    pv = float(resultados["porciones_envase"])
+                    pv_display = int(pv) if pv.is_integer() else round(pv, 1)
+                except Exception:
+                    pv_display = resultados["porciones_envase"]
+                datos_excel.append(["Porciones por envase", pv_display, ""])
             for key in resultados["por_100g"].keys():
                 if key == "energia_kcal": nombre = "Contenido energético (kcal)"
                 elif key == "energia_kj": nombre = "Contenido energético (kJ)"
@@ -415,8 +440,14 @@ class NutrimentalExporter:
                 elif key == "grasa_trans": nombre = "Grasas trans (mg)"
                 elif key == "azucares_anadidos": nombre = "Azúcares añadidos (g)"
                 else: nombre = f"{key.replace('_',' ').title()} (g)"
-                valor_100g = resultados["por_100g"][key]
-                valor_porcion = resultados["por_porcion"][key]
+                # Asegurar enteros idénticos a la vista (los dicts ya tienen ints, pero forzamos por seguridad)
+                def _cast_int(v):
+                    try:
+                        return int(float(v))
+                    except Exception:
+                        return v
+                valor_100g = _cast_int(resultados["por_100g"][key])
+                valor_porcion = _cast_int(resultados["por_porcion"][key])
                 datos_excel.append([nombre, valor_100g, valor_porcion])
             if "por_envase" in resultados:
                 datos_excel.append(["","",""]); datos_excel.append(["POR ENVASE COMPLETO","",""])

@@ -21,5 +21,38 @@ Contenido energético: 25 kcal
 Contenido energético: 105 kJ
 
 
-Sello de calorias. 
 
+
+29.8.2025 - Humedad y Cenizas se modifique a g/100g, agregar que donde dice acidos grasos saturados si diga %, revisar redondeo de self._aplicar_redondeo_energia, redonde de Grasa Saturada: 0.5 g
+Genera otro formato para cuando la porción sea igual a 100
+Orden de sellos: Clorias, azucares, grasas saturadas, grasas trans, sodio. Que todo quede en fila de los sellos y que la hoja de sellos lleve el membrete. 
+
+Revisar el redondeo y calculos por 100g. 
+POR 100 g:
+--------------------
+Proteína: 8 g
+Grasa Total: 2.5 g
+Grasa Saturada: 0.5 g
+Grasas trans: 0 mg
+Carbohidratos Disponibles: 39.93 g
+Azúcares: 5 g
+Azúcares añadidos: 5 g
+Fibra Dietética: 11 g
+Sodio: 8520 mg
+Contenido energético: 210 kcal
+Contenido energético: 910 kJ
+
+
+Revisar esta regla de redondeo
+
+def _aplicar_redondeo_nutrientes(self, valor):
+        if valor < 0.5:
+            return 0
+        elif valor <= 5:
+            return round(valor * 2) / 2
+        else:
+            return round(valor)
+
+Checar redondeo de grasa y saturada por 100g
+
+No se aceptan las decimales
