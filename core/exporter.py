@@ -480,28 +480,13 @@ class NutrimentalExporter:
                     worksheet.column_dimensions['A'].width = 30
                     worksheet.column_dimensions['B'].width = 15
                     worksheet.column_dimensions['C'].width = 15
-                with open(filename, "rb") as f:
-                    archivo_binario = f.read()
-                usuario_id = self.parent.get_usuario_id()
-                if usuario_id is None:
-                    messagebox.showwarning("Advertencia", "No se pudo guardar en la base de datos: Usuario no válido")
-                    return
-                descripcion_completa = f"{descripcion_actual}\n\nDATOS NUTRICIONALES CALCULADOS:\n"
-                descripcion_completa += f"- Proteína: {resultados['por_100g'].get('proteina','')}g/100g\n"
-                descripcion_completa += f"- Grasa total: {resultados['por_100g'].get('grasa_total','')}g/100g\n"
-                descripcion_completa += f"- Carbohidratos disponibles: {resultados['por_100g'].get('carbohidratos_disponibles','')}g/100g\n"
-                descripcion_completa += f"- Energía: {resultados['por_100g'].get('energia_kcal','')} kcal/100g\n"
-                descripcion_completa += f"- Tamaño de porción analizada: {self.parent.ultimo_calculo['datos_entrada']['porcion']}g\n"
-                descripcion_completa += f"Archivo Excel generado automáticamente: {os.path.basename(filename)}"
-                agregar_historial(
-                    nombre_actual,
-                    descripcion_completa,
-                    fecha_actual.strftime("%Y-%m-%d"),
-                    fecha_actual.strftime("%H:%M:%S"),
-                    usuario_id,
-                    archivo_binario
+                # YA NO se guarda el archivo Excel en la base de datos para evitar
+                # almacenar formatos que no son el oficial (PDF). El guardado en BD
+                # debe hacerse únicamente mediante 'guardar_solo_bd' que genera PDF.
+                messagebox.showinfo(
+                    "Exportación Exitosa",
+                    f"✅ Tabla nutrimental exportada en Excel (solo archivo local).\n\n📁 Archivo: {os.path.basename(filename)}\n📂 Ubicación: {filename}\n\nPara guardar en la base de datos en formato PDF use 'Guardar en base de datos'."
                 )
-                messagebox.showinfo("Exportación Exitosa", f"✅ Tabla nutrimental exportada correctamente:\n\n📁 Archivo: {os.path.basename(filename)}\n📂 Ubicación: {filename}\n💾 Guardado en base de datos: ✓")
             else:
                 messagebox.showinfo("Cancelado", "Exportación cancelada por el usuario.")
         except ImportError:

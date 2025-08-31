@@ -6,7 +6,9 @@ try:
 except Exception:
     DateEntry = None
 import os
-from ui.base_interface import bind_mousewheel
+import tempfile
+from io import BytesIO
+from ui.base_interface import bind_mousewheel, _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
 
 # importar solo funciones del backend
 from core.function_report import (
@@ -32,11 +34,10 @@ class HistorialModule:
                 pass
 
         # contenedor centrado con padding y margen lateral reducido para usar más ancho
-        outer = tk.Frame(self.parent.content_frame, bg="white")
+        outer = tk.Frame(self.parent.content_frame, bg=_BG)
         outer.pack(expand=True, fill="both", padx=24, pady=24)
 
-        center_container = tk.Frame(outer, bg="white")
-        # usar relwidth alto para ocupar casi todo el ancho manteniendo espacios laterales
+        center_container = tk.Frame(outer, bg=_BG)
         center_container.place(relx=0.5, rely=0.02, relwidth=0.96, relheight=0.96, anchor="n")
 
         # Título centrado
@@ -44,15 +45,15 @@ class HistorialModule:
             center_container,
             text="Historial",
             font=("Segoe UI", 18, "bold"),
-            fg="#0B5394",
-            bg="white"
+            fg=_PRIMARY,
+            bg=_BG
         )
         title.pack(pady=(6, 12))
 
         # Canvas para scroll
-        main_canvas = tk.Canvas(center_container, bg="white", highlightthickness=0)
+        main_canvas = tk.Canvas(center_container, bg=_BG, highlightthickness=0)
         main_scrollbar = tk.Scrollbar(center_container, orient="vertical", command=main_canvas.yview)
-        content_frame = tk.Frame(main_canvas, bg="white")
+        content_frame = tk.Frame(main_canvas, bg=_BG)
 
         content_frame.bind(
             "<Configure>",
@@ -84,7 +85,7 @@ class HistorialModule:
 
     def _create_filters(self):
         """Crear controles de filtro (UI only)"""
-        filtro_frame = tk.Frame(self.historial_table_frame, bg="white")
+        filtro_frame = tk.Frame(self.historial_table_frame, bg=_BG)
         filtro_frame.pack(fill="x", pady=(8, 14), padx=12)
 
         # Encabezado y descripción breve
@@ -93,15 +94,15 @@ class HistorialModule:
         else:
             subtitle = f"Mi historial: {self.parent.username}" if getattr(self.parent, "username", None) else "Mi historial"
 
-        lbl_sub = tk.Label(filtro_frame, text=subtitle, bg="white", fg="#0B5394", font=("Segoe UI", 12, "bold"))
+        lbl_sub = tk.Label(filtro_frame, text=subtitle, bg=_BG, fg=_PRIMARY, font=("Segoe UI", 12, "bold"))
         lbl_sub.pack(anchor="w", pady=(0,8))
 
-        controls = tk.Frame(filtro_frame, bg="white")
+        controls = tk.Frame(filtro_frame, bg=_BG)
         controls.pack(fill="x")
 
         # --- Orden cambiado: Fecha primero, luego Nombre ---
         # Fecha (DateEntry si está)
-        tk.Label(controls, text="Fecha:", bg="white", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=4, pady=6)
+        tk.Label(controls, text="Fecha:", bg=_BG, fg=_TEXT, font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=4, pady=6)
         self.fecha_var = getattr(self, "fecha_var", tk.StringVar())
         if DateEntry is not None:
             self.fecha_entry = DateEntry(controls, textvariable=self.fecha_var, width=16, date_pattern="yyyy-mm-dd")
@@ -110,24 +111,24 @@ class HistorialModule:
         self.fecha_entry.grid(row=0, column=1, sticky="w", padx=4, pady=6)
 
         # Nombre (ahora a la derecha, con más espacio para expandirse)
-        tk.Label(controls, text="Nombre:", bg="white", font=("Segoe UI", 10)).grid(row=0, column=2, sticky="w", padx=12, pady=6)
+        tk.Label(controls, text="Nombre:", bg=_BG, fg=_TEXT, font=("Segoe UI", 10)).grid(row=0, column=2, sticky="w", padx=12, pady=6)
         self.nombre_var = getattr(self, "nombre_var", tk.StringVar())
         tk.Entry(controls, textvariable=self.nombre_var, width=32, font=("Segoe UI", 10)).grid(row=0, column=3, sticky="we", padx=4, pady=6)
 
         # Usuario (solo admin) - mantener en la fila siguiente para claridad
         if hasattr(self.parent, 'rol') and self.parent.rol == "admin":
-            tk.Label(controls, text="Usuario ID:", bg="white", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", padx=4, pady=6)
+            tk.Label(controls, text="Usuario ID:", bg=_BG, fg=_TEXT, font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", padx=4, pady=6)
             self.usuario_filtro_var = getattr(self, "usuario_filtro_var", tk.StringVar())
             tk.Entry(controls, textvariable=self.usuario_filtro_var, width=18, font=("Segoe UI", 10)).grid(row=1, column=1, sticky="w", padx=4, pady=6)
 
         # Botones de acción
-        btn_frame = tk.Frame(filtro_frame, bg="white")
+        btn_frame = tk.Frame(filtro_frame, bg=_BG)
         btn_frame.pack(anchor="e", pady=(8,0))
 
         style_btn = {"font": ("Segoe UI", 10, "bold"), "bd": 0, "cursor": "hand2", "padx": 12, "pady": 6}
-        btn_filtrar = tk.Button(btn_frame, text="Filtrar", bg="#0B5394", fg="white", command=self._actualizar_tabla_historial_filtrada, **style_btn)
+        btn_filtrar = tk.Button(btn_frame, text="Filtrar", bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK, command=self._actualizar_tabla_historial_filtrada, **style_btn)
         btn_filtrar.pack(side="left", padx=6)
-        btn_limpiar = tk.Button(btn_frame, text="Limpiar", bg="#888888", fg="white", command=self._limpiar_filtros, **style_btn)
+        btn_limpiar = tk.Button(btn_frame, text="Limpiar", bg=_PRIMARY_DARK, fg="white", activebackground=_PRIMARY, command=self._limpiar_filtros, **style_btn)
         btn_limpiar.pack(side="left", padx=6)
 
         # ajustar pesos: hacer que la columna del nombre (3) sea la que se expanda
@@ -136,7 +137,7 @@ class HistorialModule:
         controls.grid_columnconfigure(2, weight=0)
 
     def _create_table(self):
-        self.tabla_historial_frame = tk.Frame(self.historial_table_frame, bg="white")
+        self.tabla_historial_frame = tk.Frame(self.historial_table_frame, bg=_BG)
         self.tabla_historial_frame.pack(fill="both", expand=True, padx=12, pady=(6,18))
 
     def _limpiar_filtros(self):
@@ -168,19 +169,19 @@ class HistorialModule:
 
         # Encabezados según rol
         if getattr(self.parent, 'rol', '') == "admin":
-            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Usuario ID", "Usuario", "Archivo", "Acciones"]
+            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Usuario ID", "Usuario", "Acciones"]
         else:
-            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Archivo", "Acciones"]
+            headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Acciones"]
 
         # Encabezados estilizados
-        header_frame = tk.Frame(self.tabla_historial_frame, bg="#0B5394")
+        header_frame = tk.Frame(self.tabla_historial_frame, bg=_PRIMARY)
         header_frame.pack(fill="x", padx=2)
         for col, h in enumerate(headers):
-            lbl = tk.Label(header_frame, text=h, bg="#0B5394", fg="white", font=("Segoe UI", 10, "bold"), padx=8, pady=8)
+            lbl = tk.Label(header_frame, text=h, bg=_PRIMARY, fg="white", font=("Segoe UI", 10, "bold"), padx=8, pady=8)
             lbl.grid(row=0, column=col, sticky="nsew", padx=1)
             header_frame.grid_columnconfigure(col, weight=1, minsize=100)
 
-        body_frame = tk.Frame(self.tabla_historial_frame, bg="white")
+        body_frame = tk.Frame(self.tabla_historial_frame, bg=_BG)
         body_frame.pack(fill="both", expand=True)
 
         if not filtrado:
@@ -188,8 +189,8 @@ class HistorialModule:
                 body_frame,
                 text="No se encontraron registros.",
                 font=("Segoe UI", 11),
-                fg="#666666",
-                bg="white",
+                fg=_TEXT,
+                bg=_BG,
                 pady=20
             )
             no_data_label.pack()
@@ -202,40 +203,55 @@ class HistorialModule:
             except Exception:
                 continue
 
-            row_frame = tk.Frame(body_frame, bg="#f7fbff", bd=0, relief="flat")
+            row_frame = tk.Frame(body_frame, bg="#FFFFFF", bd=0, relief="flat")
             row_frame.pack(fill="x", padx=2, pady=6)
 
             # Column labels (use grid inside row_frame)
-            col0 = tk.Label(row_frame, text=str(Id), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col0 = tk.Label(row_frame, text=str(Id), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col0.grid(row=0, column=0, sticky="nsew", padx=8)
-            col1 = tk.Label(row_frame, text=str(Nombre), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col1 = tk.Label(row_frame, text=str(Nombre), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col1.grid(row=0, column=1, sticky="nsew", padx=8)
-            col2 = tk.Label(row_frame, text=str(Descripcion), bg="#f7fbff", font=("Segoe UI", 10), anchor="w", wraplength=600, justify="left")
+            col2 = tk.Label(row_frame, text=str(Descripcion), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w", wraplength=600, justify="left")
             col2.grid(row=0, column=2, sticky="nsew", padx=8)
-            col3 = tk.Label(row_frame, text=str(Fecha), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col3 = tk.Label(row_frame, text=str(Fecha), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col3.grid(row=0, column=3, sticky="nsew", padx=8)
-            col4 = tk.Label(row_frame, text=str(Hora), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+            col4 = tk.Label(row_frame, text=str(Hora), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col4.grid(row=0, column=4, sticky="nsew", padx=8)
 
-            col_idx = 5
+            col_idx = 5  # posición inicial para acciones o columnas extra
             if getattr(self.parent, 'rol', '') == "admin":
-                col_user = tk.Label(row_frame, text=str(UsuarioId), bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+                col_user = tk.Label(row_frame, text=str(UsuarioId), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
                 col_user.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
                 username = get_username_by_id(UsuarioId)
-                col_username = tk.Label(row_frame, text=username, bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
+                col_username = tk.Label(row_frame, text=username, bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
                 col_username.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
 
-            archivo_text = "Sí" if Archivo else "No"
-            col_archivo = tk.Label(row_frame, text=archivo_text, bg="#f7fbff", font=("Segoe UI", 10), anchor="w")
-            col_archivo.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
-
-            # acciones (descargar/eliminar) en el extremo derecho
-            actions = tk.Frame(row_frame, bg="#f7fbff")
+            # acciones (preview / descargar / eliminar)
+            actions = tk.Frame(row_frame, bg="#FFFFFF")
             actions.grid(row=0, column=col_idx, sticky="e", padx=8)
 
-            btn_desc = tk.Button(actions, text="Descargar", bg="#2d89ef", fg="white", bd=0, cursor="hand2",
+            # Preview button (solo si hay archivo)
+            eye_icon = self._load_icon('eye.jpg')
+            if Archivo:
+                btn_prev = tk.Button(
+                    actions,
+                    image=eye_icon if eye_icon else None,
+                    text="Preview" if not eye_icon else "",
+                    compound="left",
+                    bg=_PRIMARY,
+                    fg="white",
+                    activebackground=_PRIMARY_DARK,
+                    bd=0,
+                    cursor="hand2",
+                    command=lambda archivo=Archivo, nombre=Nombre: self._preview_archivo(archivo, nombre)
+                )
+            else:
+                btn_prev = tk.Button(actions, text="Preview", state="disabled", bg="#cccccc", fg="#666666", bd=0)
+            btn_prev.pack(side="left", padx=4)
+
+            btn_desc = tk.Button(actions, text="Descargar", bg=_PRIMARY_DARK, fg="white", activebackground=_PRIMARY, bd=0, cursor="hand2",
                                  command=lambda archivo=Archivo, nombre=Nombre: self._descargar_archivo(archivo, nombre))
-            btn_desc.pack(side="left", padx=6)
+            btn_desc.pack(side="left", padx=4)
 
             # determinar permiso para eliminar
             can_delete = False
@@ -246,7 +262,7 @@ class HistorialModule:
                 can_delete = (current_user_id == UsuarioId)
 
             if can_delete:
-                btn_del = tk.Button(actions, text="Eliminar", bg="#d9534f", fg="white", bd=0, cursor="hand2",
+                btn_del = tk.Button(actions, text="Eliminar", bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK, bd=0, cursor="hand2",
                                     command=lambda id_hist=Id: self._eliminar_registro(id_hist))
             else:
                 btn_del = tk.Button(actions, text="Eliminar", bg="#cccccc", fg="#666666", bd=0, state="disabled")
@@ -311,3 +327,150 @@ class HistorialModule:
             self._actualizar_tabla_historial_filtrada()
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo eliminar el registro: {e}")
+
+    def _preview_archivo(self, archivo_bin, nombre):
+        """Muestra una ventana emergente con la vista previa del PDF dentro de la aplicación.
+
+        Requiere PyMuPDF (fitz). Si no está instalado, muestra instrucción.
+        Sólo lectura; convierte cada página a imagen y permite navegar.
+        """
+        if not archivo_bin:
+            messagebox.showwarning("Advertencia", "No hay archivo para previsualizar.")
+            return
+        # Crear ventana emergente
+        preview_win = tk.Toplevel(self.parent)
+        preview_win.title(f"Preview PDF - {nombre}")
+        preview_win.configure(bg=_BG)
+        preview_win.geometry("800x600")
+        preview_win.transient(self.parent.winfo_toplevel())
+        preview_win.grab_set()
+
+        header = tk.Frame(preview_win, bg=_BG)
+        header.pack(fill="x", pady=4)
+        tk.Label(header, text=f"Vista previa: {nombre}", font=("Segoe UI", 12, "bold"), bg=_BG, fg=_PRIMARY).pack(side="left", padx=10)
+        status_var = tk.StringVar(value="Cargando PDF...")
+        status_lbl = tk.Label(header, textvariable=status_var, bg=_BG, fg=_TEXT, font=("Segoe UI", 9))
+        status_lbl.pack(side="right", padx=10)
+
+        nav_frame = tk.Frame(preview_win, bg=_BG)
+        nav_frame.pack(fill="x", pady=(0,4))
+        btn_prev = tk.Button(nav_frame, text="◀", width=4, state="disabled")
+        btn_next = tk.Button(nav_frame, text="▶", width=4, state="disabled")
+        page_info_var = tk.StringVar(value="Página 0 / 0")
+        page_info_lbl = tk.Label(nav_frame, textvariable=page_info_var, bg=_BG, fg=_TEXT, font=("Segoe UI", 9))
+        btn_prev.pack(side="left", padx=6)
+        btn_next.pack(side="left")
+        page_info_lbl.pack(side="left", padx=12)
+
+        # Contenedor scroll
+        canvas_frame = tk.Frame(preview_win, bg=_BG)
+        canvas_frame.pack(fill="both", expand=True)
+        canvas = tk.Canvas(canvas_frame, bg=_BG, highlightthickness=0)
+        vbar = tk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+        hbar = tk.Scrollbar(canvas_frame, orient="horizontal", command=canvas.xview)
+        canvas.configure(yscrollcommand=vbar.set, xscrollcommand=hbar.set)
+        vbar.pack(side="right", fill="y")
+        hbar.pack(side="bottom", fill="x")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        inner = tk.Frame(canvas, bg=_BG)
+        win_id = canvas.create_window((0,0), window=inner, anchor="nw")
+        def _sync_scroll(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        inner.bind("<Configure>", _sync_scroll)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=max(e.width, inner.winfo_reqwidth())))
+
+        img_label = tk.Label(inner, bg=_BG)
+        img_label.pack(padx=10, pady=10)
+
+        # Botón para guardar directamente desde preview
+        action_frame = tk.Frame(preview_win, bg=_BG)
+        action_frame.pack(fill="x", pady=(4,8))
+        def _guardar_desde_preview():
+            suggested = get_suggested_filename(nombre, archivo_bin)
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            if not os.path.exists(desktop):
+                desktop = os.path.expanduser("~")
+            file_path = filedialog.asksaveasfilename(
+                title="Guardar PDF",
+                initialfile=suggested,
+                initialdir=desktop,
+                defaultextension=".pdf",
+                filetypes=[("PDF","*.pdf")]
+            )
+            if file_path:
+                try:
+                    save_binary_to_path(archivo_bin, file_path)
+                    messagebox.showinfo("Éxito", f"Archivo guardado:\n{file_path}")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo guardar: {e}")
+        tk.Button(action_frame, text="Guardar PDF...", bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK, bd=0, cursor="hand2", command=_guardar_desde_preview).pack(side="left", padx=10)
+        tk.Button(action_frame, text="Cerrar", bg=_PRIMARY_DARK, fg="white", activebackground=_PRIMARY, bd=0, cursor="hand2", command=preview_win.destroy).pack(side="right", padx=10)
+
+        # Lógica de renderizado
+        images = []  # PhotoImage refs
+        pil_pages = []  # PIL Images para potencial re-escalado
+        current_page = {"index": 0}
+
+        def _render_page(idx):
+            if not pil_pages:
+                return
+            idx = max(0, min(idx, len(pil_pages)-1))
+            current_page["index"] = idx
+            pil_img = pil_pages[idx]
+            # Ajuste a ancho máximo (menos márgenes) sin ampliar si es más pequeño
+            max_width = canvas.winfo_width() - 40
+            if max_width > 100:
+                ratio = min(1.0, max_width / pil_img.width)
+                if ratio < 1.0:
+                    new_size = (int(pil_img.width * ratio), int(pil_img.height * ratio))
+                    disp_img = pil_img.resize(new_size, Image.LANCZOS)
+                else:
+                    disp_img = pil_img
+            else:
+                disp_img = pil_img
+            photo = ImageTk.PhotoImage(disp_img)
+            img_label.configure(image=photo)
+            img_label.image = photo  # referencia
+            page_info_var.set(f"Página {idx+1} / {len(pil_pages)}")
+            # botones
+            btn_prev.configure(state="normal" if idx > 0 else "disabled")
+            btn_next.configure(state="normal" if idx < len(pil_pages)-1 else "disabled")
+            status_var.set("Listo")
+
+        def _go_prev():
+            _render_page(current_page["index"] - 1)
+        def _go_next():
+            _render_page(current_page["index"] + 1)
+        btn_prev.configure(command=_go_prev)
+        btn_next.configure(command=_go_next)
+
+        def _load_pdf():
+            try:
+                import fitz  # PyMuPDF
+            except ImportError:
+                status_var.set("PyMuPDF no instalado")
+                info = tk.Label(inner, text="PyMuPDF (fitz) no está instalado.\nInstale con: pip install PyMuPDF\nLuego reintente la vista previa.", bg=_BG, fg=_TEXT, font=("Segoe UI", 10), justify="left")
+                info.pack(pady=20)
+                return
+            try:
+                doc = fitz.open(stream=archivo_bin, filetype="pdf")
+                if doc.page_count == 0:
+                    status_var.set("PDF vacío")
+                    return
+                zoom = 1.25  # factor de escala moderado
+                mat = fitz.Matrix(zoom, zoom)
+                for page in doc:
+                    pix = page.get_pixmap(matrix=mat, alpha=False)
+                    img_data = pix.tobytes("ppm")
+                    # Cargar con PIL desde bytes PPM
+                    pil_img = Image.open(BytesIO(img_data))
+                    pil_pages.append(pil_img)
+                status_var.set("Renderizando...")
+                _render_page(0)
+            except Exception as e:
+                status_var.set("Error")
+                messagebox.showerror("Error", f"No se pudo renderizar el PDF: {e}")
+
+        # Cargar PDF después de que la ventana se muestre (para dimensiones correctas)
+        preview_win.after(100, _load_pdf)
