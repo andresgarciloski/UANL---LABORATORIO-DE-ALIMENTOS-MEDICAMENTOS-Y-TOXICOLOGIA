@@ -27,7 +27,7 @@ class LoginWindow(tk.Tk):
         # Encabezado azul
         header = tk.Frame(self, bg=_PRIMARY, height=60)
         header.pack(fill="x")
-        title = tk.Label(header, text="Laboratorio de Alimentos - UANL", bg=_PRIMARY, fg="white", font=("Segoe UI", 16, "bold"))
+        title = tk.Label(header, text="", bg=_PRIMARY, fg="white", font=("Segoe UI", 16, "bold"))
         title.pack(pady=15, side="left")
         # Botón admin
         try:
@@ -98,7 +98,7 @@ class LoginWindow(tk.Tk):
                                  activebackground=_PRIMARY_DARK, cursor="hand2",
                                  font=("Segoe UI", 11, "bold"), command=self.build_login_ui)
         back_btn.pack(side="left", padx=18, pady=10)
-        title = tk.Label(header, text="Acceso Administrador - UANL", bg=_PRIMARY, fg="white", font=("Segoe UI", 16, "bold"))
+        title = tk.Label(header, text="", bg=_PRIMARY, fg="white", font=("Segoe UI", 16, "bold"))
         title.pack(pady=15)
         # Imagen admin
         try:
