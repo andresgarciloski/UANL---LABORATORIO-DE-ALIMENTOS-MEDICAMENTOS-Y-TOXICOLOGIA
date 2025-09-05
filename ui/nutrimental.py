@@ -133,7 +133,7 @@ class NutrimentalModule:
 
     # --- UI builders (sin lógica de exportación) ---
     def _create_basic_fields(self, parent):
-        basic_frame = tk.LabelFrame(parent, text="Información Básica", font=("Segoe UI",11,"bold"),
+        basic_frame = tk.LabelFrame(parent, text="Información básica", font=("Segoe UI",11,"bold"),
                                     bg="#FFFFFF", fg=_PRIMARY, bd=2, relief="groove")
         basic_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
         basic_frame.grid_columnconfigure(1, weight=1)
@@ -157,7 +157,7 @@ class NutrimentalModule:
         self.parent.hora_entry.config(state="normal"); self.parent.hora_entry.insert(0, hora_actual); self.parent.hora_entry.config(state="readonly")
         self.parent.hora_entry.grid(row=3, column=1, padx=8, pady=4, sticky="ew")
 
-        tipo_frame = tk.LabelFrame(basic_frame, text="Tipo de Muestra", font=("Segoe UI",9,"bold"), bg="#FFFFFF", fg=_PRIMARY, bd=1, relief="groove")
+        tipo_frame = tk.LabelFrame(basic_frame, text="Tipo de muestra", font=("Segoe UI",9,"bold"), bg="#FFFFFF", fg=_PRIMARY, bd=1, relief="groove")
         tipo_frame.grid(row=4, column=0, columnspan=2, sticky="ew", padx=8, pady=4)
         self.parent.tipo_muestra = tk.StringVar(value="solida")
         tk.Radiobutton(tipo_frame, text="Sólida", variable=self.parent.tipo_muestra, value="solida", bg="#FFFFFF", fg=_TEXT, selectcolor=_BG, font=("Segoe UI",9)).pack(side="left", padx=10, pady=4)
@@ -166,7 +166,7 @@ class NutrimentalModule:
         tk.Checkbutton(tipo_frame, text="Es bebida sin calorías", variable=self.parent.bebida_sin_calorias, bg="#FFFFFF", fg=_TEXT, activeforeground=_PRIMARY, selectcolor=_BG, font=("Segoe UI",9)).pack(side="left", padx=10, pady=4)
 
     def _create_nutrimental_fields(self, parent):
-        nutri_frame = tk.LabelFrame(parent, text="Datos Nutricionales", font=("Segoe UI",11,"bold"),
+        nutri_frame = tk.LabelFrame(parent, text="Datos nutricionales", font=("Segoe UI",11,"bold"),
                                     bg="#FFFFFF", fg=_PRIMARY, bd=2, relief="groove")
         nutri_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
         nutri_frame.grid_columnconfigure(1, weight=1)

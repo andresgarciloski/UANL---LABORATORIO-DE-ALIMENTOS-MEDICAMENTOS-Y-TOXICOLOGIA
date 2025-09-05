@@ -1,4 +1,6 @@
 import tkinter as tk
+from ui.base_interface import _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
+
 
 class MenuManager:
     def __init__(self, parent_window):
@@ -10,35 +12,34 @@ class MenuManager:
         if hasattr(self.parent, "menu_frame") and self.parent.menu_frame is not None:
             try:
                 self.parent.menu_frame.destroy()
-            except:
+            except Exception:
                 pass
 
         self.parent.menu_frame = tk.Toplevel(self.parent)
         self.parent.menu_frame.overrideredirect(True)
         self.parent.menu_frame.attributes('-topmost', True)
-        self.parent.menu_frame.configure(bg="#0B5394")
+        self.parent.menu_frame.configure(bg=_PRIMARY)
         self.parent.menu_frame.transient(self.parent)
 
-        canvas_bg = tk.Canvas(self.parent.menu_frame, bg="#0B5394", highlightthickness=0, bd=0)
+        canvas_bg = tk.Canvas(self.parent.menu_frame, bg=_PRIMARY, highlightthickness=0, bd=0)
         canvas_bg.pack(fill="both", expand=True)
         self.parent.menu_frame.update_idletasks()
         w = 260
         h = self.parent.winfo_height() - 60
-        canvas_bg.create_rectangle(10, 10, w-10, h-10, fill="#0B5394", outline="#073763", width=2)
+        canvas_bg.create_rectangle(10, 10, w-10, h-10, fill=_PRIMARY, outline=_PRIMARY_DARK, width=2)
 
-        content_frame = tk.Frame(canvas_bg, bg="#0B5394")
+        content_frame = tk.Frame(canvas_bg, bg=_PRIMARY)
         canvas_bg.create_window((0, 0), window=content_frame, anchor="nw", width=w, height=h)
 
-        # Botón "X" para cerrar el menú en la esquina superior derecha
         close_btn = tk.Button(
             canvas_bg,
             text="✕",
             font=("Segoe UI", 16, "bold"),
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
             bd=0,
-            activebackground="#073763",
-            activeforeground="#ffc107",
+            activebackground=_PRIMARY_DARK,
+            activeforeground="white",
             command=self.hide_menu,
             cursor="hand2",
             highlightthickness=0
@@ -48,7 +49,7 @@ class MenuManager:
         menu_label = tk.Label(
             content_frame,
             text="Menú",
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
             font=("Segoe UI", 15, "bold")
         )
@@ -60,13 +61,13 @@ class MenuManager:
                 content_frame,
                 text=section,
                 relief="flat",
-                bg="#0B5394",
+                bg=_PRIMARY,
                 fg="white",
                 font=("Segoe UI", 13),
                 anchor="w",
                 padx=30,
                 pady=12,
-                activebackground="#073763",
+                activebackground=_PRIMARY_DARK,
                 activeforeground="white",
                 bd=0,
                 highlightthickness=0,
@@ -76,24 +77,25 @@ class MenuManager:
             btn.pack(fill="x", pady=2)
             self.parent.menu_buttons.append(btn)
 
-            # Animación de resaltado al pasar el mouse
             def on_enter(e, b=btn):
-                b.configure(bg="#1156b3", fg="#ffc107")
+                b.configure(bg=_PRIMARY_DARK, fg="white")
+
             def on_leave(e, b=btn):
-                b.configure(bg="#0B5394", fg="white")
+                b.configure(bg=_PRIMARY, fg="white")
+
             btn.bind("<Enter>", on_enter)
             btn.bind("<Leave>", on_leave)
 
-        sep = tk.Frame(content_frame, bg="#073763", height=2)
+        sep = tk.Frame(content_frame, bg=_PRIMARY_DARK, height=2)
         sep.pack(fill="x", padx=20, pady=10)
 
         self.parent.update_idletasks()
         x = self.parent.winfo_rootx()
         y = self.parent.winfo_rooty()
-        h = self.parent.winfo_height()
+        h_total = self.parent.winfo_height()
         header_height = 60
         menu_width = 260
-        self.parent.menu_frame.geometry(f"{menu_width}x{h-header_height}+{x}+{y+header_height}")
+        self.parent.menu_frame.geometry(f"{menu_width}x{h_total-header_height}+{x}+{y+header_height}")
         self.parent.menu_visible = True
 
     def hide_menu(self):
