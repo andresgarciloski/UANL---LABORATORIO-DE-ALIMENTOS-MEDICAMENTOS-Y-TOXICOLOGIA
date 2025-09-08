@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import ttk
 import math
 import datetime
 """Módulo de cálculo y visualización de Tabla Nutrimental.
@@ -23,7 +24,7 @@ Pendientes opcionales que pueden activarse en el futuro:
 import os
 from PIL import Image, ImageTk  # sólo si en el futuro se necesita mostrar imágenes en UI
 # from core.auth import agregar_historial  # no se usa directamente aquí
-from ui.base_interface import bind_mousewheel, _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
+from ui.base_interface import bind_mousewheel, _BG, _PRIMARY, _PRIMARY_DARK, _TEXT, _SECONDARY, _EMPHASIS
 import tempfile
 from core.exporter import NutrimentalExporter  # solo el exportador, no la lógica de sellos
 
@@ -31,6 +32,25 @@ class NutrimentalModule:
     def __init__(self, parent_window):
         self.parent = parent_window
         self.exporter = NutrimentalExporter(parent_window)
+        # Paleta para tarjetas modernas
+        self._CARD_BG = _BG
+        self._CARD_BORDER = '#E0E3E6'
+        self._CARD_HEADER_BG = _EMPHASIS  # sutil énfasis
+        self._CARD_HEADER_FG = _PRIMARY
+        self._CARD_HEADER_FONT = ("Segoe UI", 11, 'bold')
+        self._CARD_BODY_FONT = ("Segoe UI", 10)
+
+    # --- Helper visual para crear "cards" modernas ---
+    def _create_card(self, parent, title, full_height=False):
+        outer = tk.Frame(parent, bg=self._CARD_BG, highlightthickness=1, highlightbackground=self._CARD_BORDER, bd=0)
+        pack_fill = 'both' if full_height else 'x'
+        outer.pack(fill=pack_fill, expand=True, padx=10, pady=8)
+        header = tk.Frame(outer, bg=self._CARD_HEADER_BG, bd=0)
+        header.pack(fill='x')
+        tk.Label(header, text=title, font=self._CARD_HEADER_FONT, fg=self._CARD_HEADER_FG, bg=self._CARD_HEADER_BG).pack(anchor='w', padx=10, pady=(6,6))
+        body = tk.Frame(outer, bg=self._CARD_BG)
+        body.pack(fill='both', expand=True, padx=10, pady=(0,10))
+        return body
 
     # ----------------- NUEVO: método público para botón -----------------
     def calcular_tabla_nutrimental(self):
@@ -57,119 +77,124 @@ class NutrimentalModule:
             messagebox.showerror('Error', f'No se pudo calcular la tabla nutrimental.\n{e}')
 
     def show_nutrimental_section(self):
-        """Construye la interfaz, sin realizar cálculos todavía."""
-        for widget in self.parent.content_frame.winfo_children():
-            widget.destroy()
+        """Construye una versión más moderna: encabezado + panel lateral (inputs) + panel de resultados."""
+        # Limpia contenido previo
+        for w in self.parent.content_frame.winfo_children():
+            w.destroy()
+        self._init_styles()
 
-        # Paleta tomada de base_interface: _BG (fondo), _PRIMARY (rojo), _PRIMARY_DARK, _TEXT
-        main_frame = tk.Frame(self.parent.content_frame, bg=_BG, bd=0)
-        main_frame.pack(expand=True, fill="both", padx=20, pady=(5,20))
+        root = tk.Frame(self.parent.content_frame, bg=_BG)
+        root.pack(fill="both", expand=True)
+        # Header con pseudo degradado simple (dos frames superpuestos)
+        header = tk.Frame(root, bg=_PRIMARY, height=70, highlightthickness=0)
+        header.pack(fill='x', side='top')
+        header.grid_propagate(False)
+        tk.Label(header, text="Tabla Nutrimental", bg=_PRIMARY, fg='white', font=("Segoe UI",18,'bold')).pack(anchor='w', padx=18, pady=(10,0))
+        tk.Label(header, text="Ingresa los datos base y genera la tabla oficial.", bg=_PRIMARY, fg='white', font=("Segoe UI",10)).pack(anchor='w', padx=18, pady=(0,8))
 
-        canvas = tk.Canvas(main_frame, bg=_BG, highlightthickness=0)
-        scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Contenedor principal con PanedWindow (modern split)
+        paned = ttk.Panedwindow(root, orient='horizontal')
+        paned.pack(fill='both', expand=True)
 
-        # Contenedor desplazable
-        scrollable_frame = tk.Frame(canvas, bg=_BG)
-        self._scrollable_window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        # Ajustar ancho del frame interno al ancho visible del canvas para evitar corte horizontal
-        def _sync_inner_width(event):
+        # Panel de entradas (scrollable)
+        input_wrapper = tk.Frame(paned, bg=_BG)
+        paned.add(input_wrapper, weight=3)
+        inputs_canvas = tk.Canvas(input_wrapper, bg=_BG, highlightthickness=0, bd=0)
+        inputs_scroll = ttk.Scrollbar(input_wrapper, orient='vertical', command=inputs_canvas.yview)
+        inputs_canvas.pack(side='left', fill='both', expand=True)
+        inputs_scroll.pack(side='right', fill='y')
+        inner_inputs = tk.Frame(inputs_canvas, bg=_BG)
+        win_id = inputs_canvas.create_window((0,0), window=inner_inputs, anchor='nw')
+        inner_inputs.bind('<Configure>', lambda e: inputs_canvas.configure(scrollregion=inputs_canvas.bbox('all')))
+        def _sync_width(e):
             try:
-                canvas.itemconfig(self._scrollable_window_id, width=event.width)
+                inputs_canvas.itemconfig(win_id, width=e.width)
             except Exception:
                 pass
-        canvas.bind('<Configure>', _sync_inner_width)
-        bind_mousewheel(canvas, scrollable_frame)
+        inputs_canvas.bind('<Configure>', _sync_width)
+        bind_mousewheel(inputs_canvas, inner_inputs)
 
-        scrollable_frame.grid_columnconfigure(0, weight=1, uniform="col")
-        scrollable_frame.grid_columnconfigure(1, weight=1, uniform="col")
-        scrollable_frame.grid_columnconfigure(2, weight=1, uniform="col")
+        # Agrupar secciones dentro del panel de inputs
+        self._create_basic_fields(inner_inputs)
+        self._create_nutrimental_fields(inner_inputs)
 
-        left_col = tk.Frame(scrollable_frame, bg=_BG)
-        center_col = tk.Frame(scrollable_frame, bg=_BG)
-        right_col = tk.Frame(scrollable_frame, bg=_BG)
-        left_col.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        center_col.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        right_col.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+        # Panel de resultados
+        results_panel = tk.Frame(paned, bg=_BG)
+        paned.add(results_panel, weight=4)
+        # Card resultados
+        self._create_results_area(results_panel)
 
-        self._create_basic_fields(left_col)
-        self._create_nutrimental_fields(center_col)
-        self._create_results_area(right_col)
+        # Barra inferior de acciones (flotante en panel resultados)
+        actions = tk.Frame(results_panel, bg=_BG)
+        actions.pack(fill='x', pady=(4,10))
+        self._create_buttons(actions)
 
-        # Guardar referencias para layout responsivo
-        self._responsive_parent = scrollable_frame
-        self._col_left = left_col
-        self._col_center = center_col
-        self._col_right = right_col
-        self._layout_mode = None  # para evitar re-dibujar si no cambia
-
-        self._apply_responsive_layout(initial=True)
-
-        # Bind de resize (usar toplevel para captar cambios de ventana)
-        toplevel = self.parent.winfo_toplevel()
+        # Ajustar un mínimo para que se perciba la división
         try:
-            toplevel.bind('<Configure>', lambda e: self._apply_responsive_layout())
+            paned.sashpos(0, int(self.parent.winfo_width()*0.40))
         except Exception:
             pass
 
+        # Guardar referencias mínimas para compatibilidad (no se usa layout responsivo previo)
+        self._responsive_parent = None
         try:
             self._attach_tipo_trace()
         except Exception:
             pass
 
-        # Frame de botones
-        self._buttons_frame = tk.Frame(scrollable_frame, bg=_BG)
-        self._buttons_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10,10))
-        buttons_container = tk.Frame(self._buttons_frame, bg=_BG)
-        buttons_container.pack(expand=True)
-        self._create_buttons(buttons_container)
+        # Decoración ligera: borde lateral al panel de resultados
+        try:
+            divider = tk.Frame(results_panel, bg=_SECONDARY, width=1)
+            divider.place(relx=0, rely=0, relheight=1)
+        except Exception:
+            pass
 
-        # Fin del método show_nutrimental_section
+        # Fin nueva versión
 
 
 
     # --- UI builders (sin lógica de exportación) ---
     def _create_basic_fields(self, parent):
-        basic_frame = tk.LabelFrame(parent, text="Información básica", font=("Segoe UI",11,"bold"),
-                                    bg="#FFFFFF", fg=_PRIMARY, bd=2, relief="groove")
-        basic_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
-        basic_frame.grid_columnconfigure(1, weight=1)
-        tk.Label(basic_frame, text="N° de muestra:", bg="#FFFFFF", font=("Segoe UI",9,"bold"), fg=_TEXT).grid(row=0, column=0, sticky="w", padx=8, pady=4)
-        self.parent.nombre_entry = tk.Entry(basic_frame, font=("Segoe UI",9), relief="solid", bd=1)
-        self.parent.nombre_entry.grid(row=0, column=1, padx=8, pady=4, sticky="ew")
-
-        tk.Label(basic_frame, text="Descripción:", bg="#FFFFFF", font=("Segoe UI",9,"bold"), fg=_TEXT).grid(row=1, column=0, sticky="nw", padx=8, pady=4)
-        self.parent.descripcion_entry = tk.Text(basic_frame, font=("Segoe UI",9), height=3, relief="solid", bd=1)
-        self.parent.descripcion_entry.grid(row=1, column=1, padx=8, pady=4, sticky="ew")
-
-        tk.Label(basic_frame, text="Fecha:", bg="#FFFFFF", font=("Segoe UI",9,"bold"), fg=_TEXT).grid(row=2, column=0, sticky="w", padx=8, pady=4)
-        self.parent.fecha_entry = tk.Entry(basic_frame, font=("Segoe UI",9), state="readonly", bg="#f0f0f0", relief="solid", bd=1)
+        card_body = self._create_card(parent, "Información básica")
+        card_body.columnconfigure(1, weight=1)
+        frame_bg = self._CARD_BG
+        lbl_cfg = {"foreground": _TEXT, "background": frame_bg, "font": ("Segoe UI",10,"bold")}
+        # Fila 0
+        tk.Label(card_body, text="N° de muestra:", **lbl_cfg).grid(row=0, column=0, sticky="w", padx=(2,8), pady=4)
+        self.parent.nombre_entry = ttk.Entry(card_body, font=("Segoe UI",10), style="Input.TEntry")
+        self.parent.nombre_entry.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
+        # Fila 1
+        tk.Label(card_body, text="Descripción:", **lbl_cfg).grid(row=1, column=0, sticky="nw", padx=(2,8), pady=4)
+        self.parent.descripcion_entry = tk.Text(card_body, font=("Segoe UI",10), height=3, bd=1, relief="solid")
+        self.parent.descripcion_entry.grid(row=1, column=1, padx=4, pady=4, sticky="ew")
+        # Fila 2
+        tk.Label(card_body, text="Fecha:", **lbl_cfg).grid(row=2, column=0, sticky="w", padx=(2,8), pady=4)
+        self.parent.fecha_entry = ttk.Entry(card_body, font=("Segoe UI",10), state="readonly")
         fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
         self.parent.fecha_entry.config(state="normal"); self.parent.fecha_entry.insert(0, fecha_actual); self.parent.fecha_entry.config(state="readonly")
-        self.parent.fecha_entry.grid(row=2, column=1, padx=8, pady=4, sticky="ew")
-
-        tk.Label(basic_frame, text="Hora:", bg="#FFFFFF", font=("Segoe UI",9,"bold"), fg=_TEXT).grid(row=3, column=0, sticky="w", padx=8, pady=4)
-        self.parent.hora_entry = tk.Entry(basic_frame, font=("Segoe UI",9), state="readonly", bg="#f0f0f0", relief="solid", bd=1)
+        self.parent.fecha_entry.grid(row=2, column=1, padx=4, pady=4, sticky="ew")
+        # Fila 3
+        tk.Label(card_body, text="Hora:", **lbl_cfg).grid(row=3, column=0, sticky="w", padx=(2,8), pady=4)
+        self.parent.hora_entry = ttk.Entry(card_body, font=("Segoe UI",10), state="readonly")
         hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
         self.parent.hora_entry.config(state="normal"); self.parent.hora_entry.insert(0, hora_actual); self.parent.hora_entry.config(state="readonly")
-        self.parent.hora_entry.grid(row=3, column=1, padx=8, pady=4, sticky="ew")
-
-        tipo_frame = tk.LabelFrame(basic_frame, text="Tipo de muestra", font=("Segoe UI",9,"bold"), bg="#FFFFFF", fg=_PRIMARY, bd=1, relief="groove")
-        tipo_frame.grid(row=4, column=0, columnspan=2, sticky="ew", padx=8, pady=4)
+        self.parent.hora_entry.grid(row=3, column=1, padx=4, pady=4, sticky="ew")
+        # Sección tipo de muestra como sub-card visual dentro
+        sub_frame = tk.Frame(card_body, bg=frame_bg)
+        sub_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(8,2))
+        tk.Label(sub_frame, text="Tipo de muestra", bg=frame_bg, fg=_PRIMARY, font=("Segoe UI",9,'bold')).pack(anchor='w', pady=(0,4))
+        radios = tk.Frame(sub_frame, bg=frame_bg)
+        radios.pack(anchor='w')
         self.parent.tipo_muestra = tk.StringVar(value="solida")
-        tk.Radiobutton(tipo_frame, text="Sólida", variable=self.parent.tipo_muestra, value="solida", bg="#FFFFFF", fg=_TEXT, selectcolor=_BG, font=("Segoe UI",9)).pack(side="left", padx=10, pady=4)
-        tk.Radiobutton(tipo_frame, text="Líquida", variable=self.parent.tipo_muestra, value="liquida", bg="#FFFFFF", fg=_TEXT, selectcolor=_BG, font=("Segoe UI",9)).pack(side="left", padx=10, pady=4)
+        tk.Radiobutton(radios, text="Sólida", variable=self.parent.tipo_muestra, value="solida", bg=frame_bg, fg=_TEXT, selectcolor=_BG, font=("Segoe UI",10)).pack(side="left", padx=(0,10))
+        tk.Radiobutton(radios, text="Líquida", variable=self.parent.tipo_muestra, value="liquida", bg=frame_bg, fg=_TEXT, selectcolor=_BG, font=("Segoe UI",10)).pack(side="left", padx=(0,10))
         self.parent.bebida_sin_calorias = tk.BooleanVar(value=False)
-        tk.Checkbutton(tipo_frame, text="Es bebida sin calorías", variable=self.parent.bebida_sin_calorias, bg="#FFFFFF", fg=_TEXT, activeforeground=_PRIMARY, selectcolor=_BG, font=("Segoe UI",9)).pack(side="left", padx=10, pady=4)
+        tk.Checkbutton(radios, text="Es bebida sin calorías", variable=self.parent.bebida_sin_calorias, bg=frame_bg, fg=_TEXT, selectcolor=_BG, font=("Segoe UI",10)).pack(side="left", padx=(0,10))
 
     def _create_nutrimental_fields(self, parent):
-        nutri_frame = tk.LabelFrame(parent, text="Datos nutricionales", font=("Segoe UI",11,"bold"),
-                                    bg="#FFFFFF", fg=_PRIMARY, bd=2, relief="groove")
-        nutri_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
-        nutri_frame.grid_columnconfigure(1, weight=1)
+        nutri_frame = self._create_card(parent, "Datos nutricionales")
+        for c in range(0, 4):
+            nutri_frame.columnconfigure(c, weight=1, uniform='nutri')
         self.parent.nutri_vars = {}
         self.parent.nutri_label_widgets = {}
 
@@ -181,85 +206,92 @@ class NutrimentalModule:
         except Exception:
             es_liquida = False
 
-        ref_unit = "100 mL" if es_liquida else "100 g"
-        suf_g = f"(g/{ref_unit})"
-        suf_mg = f"(mg/{ref_unit})"
-
-        # create fields using label helper so units switch correctly for sólido/liquida
         nutri_keys = [
-            "humedad",
-            "cenizas",
-            "proteina",
-            "grasa_total",
-            "grasa_trans",
-            "fibra_dietetica",
-            "azucares",
-            "azucares_anadidos",
-            "sodio",
-            "acidos_grasos_saturados",
-            "porcion",
-            "contenido_neto",
+            "humedad", "cenizas", "proteina", "grasa_total",
+            "grasa_trans", "fibra_dietetica", "azucares", "azucares_anadidos",
+            "sodio", "acidos_grasos_saturados", "porcion", "contenido_neto"
         ]
-        for i, key in enumerate(nutri_keys):
+
+        for idx, key in enumerate(nutri_keys):
+            col = (idx % 2) * 2
+            row = idx // 2
             label_text = self._get_label_text(key, es_liquida)
-            lbl = tk.Label(nutri_frame, text=label_text, bg="#FFFFFF", font=("Segoe UI",9,"bold"), fg=_TEXT)
-            lbl.grid(row=i, column=0, sticky="w", padx=8, pady=3)
-            entry = tk.Entry(nutri_frame, font=("Segoe UI",9), relief="solid", bd=1)
-            entry.grid(row=i, column=1, padx=8, pady=3, sticky="ew")
+            lbl = tk.Label(nutri_frame, text=label_text, bg=self._CARD_BG, fg=_TEXT, font=("Segoe UI",10,"bold"))
+            lbl.grid(row=row, column=col, sticky="w", padx=(4,4), pady=5)
+            entry = ttk.Entry(nutri_frame, font=("Segoe UI",10), style="Input.TEntry")
+            entry.grid(row=row, column=col+1, sticky="ew", padx=(0,8), pady=5)
             self.parent.nutri_vars[key] = entry
             self.parent.nutri_label_widgets[key] = lbl
 
     def _create_results_area(self, parent):
-        self.parent.resultados_frame = tk.LabelFrame(parent, text="Resultados", font=("Segoe UI",11,"bold"),
-                                                     bg="#FFFFFF", fg=_PRIMARY, bd=2, relief="groove")
-        self.parent.resultados_frame.pack(fill="both", expand=True, padx=2, pady=2, ipadx=6, ipady=6)
+        wrapper = self._create_card(parent, "Resultados", full_height=True)
+        wrapper.rowconfigure(0, weight=1)
+        wrapper.columnconfigure(0, weight=1)
+        container = tk.Frame(wrapper, bg=self._CARD_BG)
+        container.grid(row=0, column=0, sticky='nsew')
         self.parent.resultados_text = tk.Text(
-            self.parent.resultados_frame,
-            font=("Courier New",9),
-            bg=_BG, state="disabled", relief="solid", bd=1,
-            wrap="none"  # evitar corte de líneas; usamos ajuste dinámico de ancho
+            container,
+            font=("Consolas",10),
+            bg=self._CARD_BG, fg="#212121", state="disabled", relief="flat", bd=0,
+            wrap="none"
         )
-        h_scroll = tk.Scrollbar(self.parent.resultados_frame, orient="horizontal", command=self.parent.resultados_text.xview)
-        self.parent.resultados_text.configure(xscrollcommand=h_scroll.set)
-        resultados_scroll = tk.Scrollbar(self.parent.resultados_frame, orient="vertical", command=self.parent.resultados_text.yview)
+        resultados_scroll = tk.Scrollbar(container, orient="vertical", command=self.parent.resultados_text.yview)
         self.parent.resultados_text.configure(yscrollcommand=resultados_scroll.set)
-        self.parent.resultados_text.pack(side="left", fill="both", expand=True, padx=8, pady=(8,0))
-        resultados_scroll.pack(side="right", fill="y", pady=8)
-        h_scroll.pack(side="bottom", fill="x", padx=8, pady=(0,8))
+        self.parent.resultados_text.pack(side="left", fill="both", expand=True, padx=0, pady=0)
+        resultados_scroll.pack(side="right", fill="y")
+        try:
+            self.parent.resultados_text.tag_config('titulo', font=("Segoe UI",11,"bold"), foreground=_PRIMARY)
+            self.parent.resultados_text.tag_config('subtitulo', font=("Segoe UI",9), foreground=_TEXT)
+            self.parent.resultados_text.tag_config('sellos', font=("Segoe UI",10,"bold"), foreground='#C62828')
+        except Exception:
+            pass
 
     def _create_buttons(self, parent):
-        """Crea solo dos botones: Calcular y Guardar en BD (formato oficial solo vía historial)."""
-        calc_btn = tk.Button(
-            parent,
-            text="Calcular tabla nutrimental",
+        """Crea botones estilizados (solo visual)."""
+        btn_bar = tk.Frame(parent, bg=_BG)
+        btn_bar.pack()
+        calc_btn = ttk.Button(
+            btn_bar,
+            text="Calcular",
             command=self.calcular_tabla_nutrimental,
-            bg=_PRIMARY,
-            fg="white",
-            font=("Segoe UI", 11, "bold"),
-            relief="flat",
-            padx=15,
-            pady=8,
-            cursor="hand2",
-            activebackground=_PRIMARY_DARK,
-            activeforeground="white",
+            style="Primary.TButton",
+            width=18
         )
-        calc_btn.pack(side="left", padx=(0, 10))
-
-        guardar_bd_btn = tk.Button(
-            parent,
-            text="Guardar en base de datos",
+        calc_btn.pack(side="left", padx=6, pady=4)
+        guardar_bd_btn = ttk.Button(
+            btn_bar,
+            text="Guardar en BD",
             command=self.exporter.guardar_solo_bd,
-            bg=_TEXT,
-            fg="white",
-            font=("Segoe UI", 11, "bold"),
-            relief="flat",
-            padx=15,
-            pady=8,
-            cursor="hand2",
-            activebackground=_PRIMARY_DARK,
-            activeforeground="white",
+            style="Secondary.TButton",
+            width=18
         )
-        guardar_bd_btn.pack(side="left", padx=10)
+        guardar_bd_btn.pack(side="left", padx=6, pady=4)
+
+    # --------- Estilos (visual only) ---------
+    def _init_styles(self):
+        if getattr(self, '_styles_inited', False):
+            return
+        try:
+            style = ttk.Style()
+            # Usar tema clam si disponible para mejor personalización
+            try:
+                style.theme_use('clam')
+            except Exception:
+                pass
+            card_bg = _BG
+            sub_bg = '#F5F5F5'
+            style.configure('Card.TLabelframe', background=card_bg, foreground=_PRIMARY, borderwidth=1, relief='solid')
+            style.configure('Card.TLabelframe.Label', background=card_bg, foreground=_PRIMARY, font=("Segoe UI",11,"bold"))
+            style.configure('SubCard.TLabelframe', background=sub_bg, foreground=_PRIMARY, borderwidth=1, relief='solid')
+            style.configure('SubCard.TLabelframe.Label', background=sub_bg, foreground=_PRIMARY, font=("Segoe UI",9,"bold"))
+            style.configure('Primary.TButton', background=_PRIMARY, foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
+            style.map('Primary.TButton', background=[('active', _PRIMARY_DARK)])
+            style.configure('Secondary.TButton', background=_TEXT, foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
+            style.map('Secondary.TButton', background=[('active', _PRIMARY_DARK)])
+            style.configure('Input.TEntry', fieldbackground=_BG, background=_BG)
+        except Exception:
+            pass
+        self._styles_inited = True
 
     def _aplicar_redondeo_nutrientes_porcion(self, valor):
         """Compatibilidad: antes existía un método genérico. Ahora solo aplica HALF_UP global."""
@@ -283,6 +315,23 @@ class NutrimentalModule:
             return int(round(valor / 5) * 5)
         else:
             return int(round(valor / 10) * 10)
+
+    def _aplicar_redondeo_energia(self, valor_kcal):
+        """Redondea energía a múltiplo de 10 kcal (regla usada para 100 g y por porción)."""
+        try:
+            v = float(valor_kcal)
+        except Exception:
+            return 0
+        return int(round(v / 10.0) * 10)
+
+    def _round_half_up_05(self, val):
+        """Redondea HALF_UP a pasos de 0.5 (ej. 0.0, 0.5, 1.0, ...). Devuelve float."""
+        from decimal import Decimal, ROUND_HALF_UP
+        try:
+            v = float(val)
+        except Exception:
+            return 0.0
+        return float(Decimal(str(v)).quantize(Decimal('0.5'), rounding=ROUND_HALF_UP))
 
     def _calcular_nutrimental(self, data):
         """Calcula los valores nutrimentales siguiendo las reglas establecidas.
@@ -333,7 +382,8 @@ class NutrimentalModule:
         fibra_dietetica_100g = half_up(fibra_raw)
         azucares_100g = half_up(azucares_raw)
         azucares_anadidos_100g = half_up(azucares_anadidos_raw)
-        grasa_saturada_100g = half_up(grasa_saturada_cruda)
+        # Redondeo de grasa saturada a pasos de 0.5 g (mantener float)
+        grasa_saturada_100g = self._round_half_up_05(grasa_saturada_cruda) if grasa_saturada_cruda else 0.0
         carbohidratos_disponibles_100g = half_up(carbo_balance_raw)
         sodio_100g = self._aplicar_regla_redondeo_sodio(sodio_raw)
         grasa_trans_100g = half_up(grasa_trans_raw)
@@ -345,7 +395,7 @@ class NutrimentalModule:
 
         # 4. Energía por 100 g/mL (usar valores redondeados) y redondear a múltiplo de 10 kcal
         energia_kcal_100g = (proteina_100g + carbohidratos_disponibles_100g) * 4 + grasa_total_100g * 9
-        energia_kcal_100g = int(round(energia_kcal_100g / 10.0) * 10)
+        energia_kcal_100g = self._aplicar_redondeo_energia(energia_kcal_100g)
         energia_kj_100g = (proteina_100g + carbohidratos_disponibles_100g) * 17 + grasa_total_100g * 37
 
         # 5. Por porción
@@ -353,7 +403,8 @@ class NutrimentalModule:
         factor = porcion / 100.0 if porcion else 0
         proteina_porcion = half_up(proteina_100g * factor)
         grasa_total_porcion = half_up(grasa_total_100g * factor)
-        grasa_saturada_porcion = half_up(grasa_saturada_100g * factor)
+        # Use raw saturated-fat amount scaled by portion, luego redondeo a 0.5 g
+        grasa_saturada_porcion = self._round_half_up_05(grasa_saturada_cruda * factor) if grasa_saturada_cruda else 0.0
         fibra_dietetica_porcion = half_up(fibra_dietetica_100g * factor)
         azucares_porcion = half_up(azucares_100g * factor)
         azucares_anadidos_porcion = half_up(azucares_anadidos_100g * factor)
@@ -361,7 +412,7 @@ class NutrimentalModule:
         sodio_porcion = self._aplicar_regla_redondeo_sodio(sodio_raw * factor)
         grasa_trans_porcion = half_up(grasa_trans_raw * factor)
         energia_kcal_porcion = (proteina_porcion + carbohidratos_disponibles_porcion) * 4 + grasa_total_porcion * 9
-        energia_kcal_porcion = int(round(energia_kcal_porcion / 10.0) * 10)
+        energia_kcal_porcion = self._aplicar_redondeo_energia(energia_kcal_porcion)
         energia_kj_porcion = (proteina_porcion + carbohidratos_disponibles_porcion) * 17 + grasa_total_porcion * 37
 
         # 6. Por envase (opcional)
@@ -602,7 +653,7 @@ class NutrimentalModule:
             # Acidos grasos saturados es un porcentaje del total de grasa
             "acidos_grasos_saturados": "Ácidos grasos saturados (%)",
             "porcion": f"Tamaño de porción ({'mL' if es_liquida else 'g'})",
-            "contenido_neto": f"Contenido neto del envase ({'mL' if es_liquida else 'g'}, opcional)"
+            "contenido_neto": f"Contenido neto({'mL' if es_liquida else 'g'})"
         }
         return mapping.get(key, key)
 

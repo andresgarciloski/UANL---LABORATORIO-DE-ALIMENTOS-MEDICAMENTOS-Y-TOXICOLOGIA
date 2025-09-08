@@ -3,11 +3,14 @@ from tkinter import messagebox  # AGREGAR ESTE IMPORT
 import os
 from PIL import Image, ImageTk, ImageDraw
 
-# Palette taken from provided logo
-_BG = "#F7E8E6"           # soft beige background
-_PRIMARY = "#C62828"      # main red
-_PRIMARY_DARK = "#991F1F" # darker red for active/hover
-_TEXT = "#3B2F2F"         # dark text tone
+# Nueva paleta (solicitada)
+# Principal: rojo suave, Hover: rojo profundo, Fondo claro, Texto principal, Secundario, Énfasis sutil
+_BG = "#F5F5F5"          # fondo claro neutro
+_PRIMARY = "#E53935"     # rojo suave principal
+_PRIMARY_DARK = "#C62828" # rojo profundo hover/activo
+_TEXT = "#212121"        # gris oscuro alta legibilidad
+_SECONDARY = "#607D8B"   # azul grisáceo suave
+_EMPHASIS = "#FFCDD2"    # rojo pastel para acentos suaves
 
 def bind_mousewheel(widget, canvas):
     """Función para enlazar el scroll del mouse a un canvas solo cuando el mouse está sobre el widget"""
@@ -79,7 +82,7 @@ class BaseInterface(tk.Tk):
         # Título clickable
         title = tk.Label(
             header,
-            text="UANL FoodLab",
+            text="Facultad de Ciencias Químicas - UANL",
             bg=_PRIMARY,
             fg="white",
             font=("Segoe UI", 16, "bold"),

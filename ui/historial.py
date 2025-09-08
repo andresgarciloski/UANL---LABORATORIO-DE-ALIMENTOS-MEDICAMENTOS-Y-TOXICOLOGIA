@@ -203,31 +203,31 @@ class HistorialModule:
             except Exception:
                 continue
 
-            row_frame = tk.Frame(body_frame, bg="#FFFFFF", bd=0, relief="flat")
+            row_frame = tk.Frame(body_frame, bg=_BG, bd=0, relief="flat")
             row_frame.pack(fill="x", padx=2, pady=6)
 
             # Column labels (use grid inside row_frame)
-            col0 = tk.Label(row_frame, text=str(Id), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
+            col0 = tk.Label(row_frame, text=str(Id), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col0.grid(row=0, column=0, sticky="nsew", padx=8)
-            col1 = tk.Label(row_frame, text=str(Nombre), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
+            col1 = tk.Label(row_frame, text=str(Nombre), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col1.grid(row=0, column=1, sticky="nsew", padx=8)
-            col2 = tk.Label(row_frame, text=str(Descripcion), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w", wraplength=600, justify="left")
+            col2 = tk.Label(row_frame, text=str(Descripcion), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w", wraplength=600, justify="left")
             col2.grid(row=0, column=2, sticky="nsew", padx=8)
-            col3 = tk.Label(row_frame, text=str(Fecha), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
+            col3 = tk.Label(row_frame, text=str(Fecha), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col3.grid(row=0, column=3, sticky="nsew", padx=8)
-            col4 = tk.Label(row_frame, text=str(Hora), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
+            col4 = tk.Label(row_frame, text=str(Hora), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
             col4.grid(row=0, column=4, sticky="nsew", padx=8)
 
             col_idx = 5  # posición inicial para acciones o columnas extra
             if getattr(self.parent, 'rol', '') == "admin":
-                col_user = tk.Label(row_frame, text=str(UsuarioId), bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
+                col_user = tk.Label(row_frame, text=str(UsuarioId), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
                 col_user.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
                 username = get_username_by_id(UsuarioId)
-                col_username = tk.Label(row_frame, text=username, bg="#FFFFFF", fg=_TEXT, font=("Segoe UI", 10), anchor="w")
+                col_username = tk.Label(row_frame, text=username, bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
                 col_username.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
 
             # acciones (preview / descargar / eliminar)
-            actions = tk.Frame(row_frame, bg="#FFFFFF")
+            actions = tk.Frame(row_frame, bg=_BG)
             actions.grid(row=0, column=col_idx, sticky="e", padx=8)
 
             # Preview button (solo si hay archivo)
