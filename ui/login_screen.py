@@ -8,6 +8,9 @@ import os
 from core.auth import verificar_login
 from ui.base_interface import _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
 
+# Tamaño único para ambos avatares
+AVATAR_SIZE = 120
+
 class LoginWindow(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -16,123 +19,267 @@ class LoginWindow(tk.Tk):
         self.geometry("540x600")
         self.configure(bg=_BG)
         self.resizable(False, False)
+
+        # refs para iconos (evitar GC)
+        self._eye_icon = None
+        self._eye_off_icon = None
+        self._admin_icon = None
+        self._arrow_icon = None
+
+        self._user_pw_visible = False
+        self._admin_pw_visible = False
+
+        # Track de jobs programados con after
+        self._after_jobs = set()
+        # Cerrar de forma segura
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
         self.build_login_ui()
 
+    # Interceptar after para registrar ids
+    def after(self, ms, func=None, *args):
+        job_id = super().after(ms, func, *args)
+        # Solo registrar si hay callback (after sin callback devuelve tiempo restante)
+        if func is not None:
+            self._after_jobs.add(job_id)
+        return job_id
+
+    def after_cancel(self, job):
+        try:
+            super().after_cancel(job)
+        finally:
+            # Quitar del registro si estaba
+            if job in self._after_jobs:
+                self._after_jobs.discard(job)
+
+    def _cancel_all_afters(self):
+        # Cancelar cualquier after pendiente registrado en esta ventana
+        jobs = list(self._after_jobs)
+        for j in jobs:
+            try:
+                super().after_cancel(j)
+            except Exception:
+                pass
+        self._after_jobs.clear()
+
+    def _on_close(self):
+        # Cancelar timers y destruir
+        self._cancel_all_afters()
+        self.destroy()
+
+    # ------------- helpers UI -------------
+    def _load_image(self, path, size):
+        try:
+            img = Image.open(path).convert("RGBA").resize(size, Image.LANCZOS)
+            return ImageTk.PhotoImage(img)
+        except Exception:
+            return None
+
+    def _get_img_path(self, name):
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "img", name))
+
+    def _load_common_icons(self):
+        # Ojo (mostrar/ocultar)
+        eye = self._load_image(self._get_img_path("eye.jpg"), (22, 22))
+        self._eye_icon = eye
+        # Si no hay imagen, se usará texto en los botones
+
+        # Admin icon
+        
+
     def clear_ui(self):
+        # Antes de destruir widgets, cancelar callbacks pendientes
+        self._cancel_all_afters()
         for widget in self.winfo_children():
             widget.destroy()
 
+    # ------------- Login usuario -------------
     def build_login_ui(self):
         self.clear_ui()
-        # Encabezado azul
-        header = tk.Frame(self, bg=_PRIMARY, height=60)
-        header.pack(fill="x")
-        title = tk.Label(header, text="", bg=_PRIMARY, fg="white", font=("Segoe UI", 16, "bold"))
-        title.pack(pady=15, side="left")
-        # Botón admin
-        try:
-            admin_img_path = os.path.join(os.path.dirname(__file__), "..", "img", "admin.png")
-            admin_img_path = os.path.abspath(admin_img_path)
-            admin_img = Image.open(admin_img_path).resize((28, 28), Image.LANCZOS)
-            self.admin_icon = ImageTk.PhotoImage(admin_img)
-            admin_btn = tk.Button(header, image=self.admin_icon, bg=_PRIMARY, bd=0, activebackground=_PRIMARY_DARK, cursor="hand2", command=self.build_admin_ui)
-            admin_btn.pack(side="right", padx=18, pady=10)
-        except Exception:
-            admin_btn = tk.Button(header, text="Admin", bg=_PRIMARY, fg="white", bd=0, activebackground=_PRIMARY_DARK, cursor="hand2", command=self.build_admin_ui)
-            admin_btn.pack(side="right", padx=18, pady=10)
+        self._load_common_icons()
 
-        # Imagen de Bruni
+        # Encabezado
+        header = tk.Frame(self, bg=_PRIMARY, height=64)
+        header.pack(fill="x")
+        tk.Label(
+            header, text="Acceso de usuarios", bg=_PRIMARY, fg="white",
+            font=("Segoe UI", 16, "bold")
+        ).pack(side="left", padx=18, pady=14)
+
+        # Avatar
+        avatar_holder = tk.Frame(self, bg=_BG)
+        avatar_holder.pack(pady=(28, 6))
         try:
-            img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
-            img_path = os.path.abspath(img_path)
-            bruni_img = Image.open(img_path).resize((130, 130), Image.LANCZOS)
-            mask = Image.new('L', (130, 130), 0)
+            img_path = self._get_img_path("bruni.png")
+            bruni_img = Image.open(img_path).resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+            mask = Image.new('L', (AVATAR_SIZE, AVATAR_SIZE), 0)
             draw = ImageDraw.Draw(mask)
-            draw.ellipse((0, 0, 130, 130), fill=255)
+            draw.ellipse((0, 0, AVATAR_SIZE, AVATAR_SIZE), fill=255)
             bruni_img.putalpha(mask)
             bruni_photo = ImageTk.PhotoImage(bruni_img)
-            img_label = tk.Label(self, image=bruni_photo, bg=_BG)
-            img_label.image = bruni_photo
-            img_label.pack(pady=(25, 10))
+            lbl = tk.Label(avatar_holder, image=bruni_photo, bg=_BG)
+            lbl.image = bruni_photo
+            lbl.pack()
         except Exception:
-            img_label = tk.Label(self, text="🧪", font=("Segoe UI", 48), bg=_BG, fg=_PRIMARY)
-            img_label.pack(pady=(25, 10))
+            tk.Label(avatar_holder, text="🧪", font=("Segoe UI", 48), bg=_BG, fg=_PRIMARY).pack()
 
-        # Formulario login
-        form_frame = tk.Frame(self, bg=_BG)
-        form_frame.pack(pady=10)
-        tk.Label(form_frame, text="Usuario:", font=("Segoe UI", 12), bg=_BG, fg=_TEXT).grid(row=0, column=0, sticky="e", padx=10, pady=10)
-        self.username_entry = tk.Entry(form_frame, font=("Segoe UI", 12), width=25)
-        self.username_entry.grid(row=0, column=1, padx=10, pady=10)
-        tk.Label(form_frame, text="Contraseña:", font=("Segoe UI", 12), bg=_BG, fg=_TEXT).grid(row=1, column=0, sticky="e", padx=10, pady=10)
-        self.password_entry = tk.Entry(form_frame, show="*", font=("Segoe UI", 12), width=25)
-        self.password_entry.grid(row=1, column=1, padx=10, pady=10)
+        # Card
+        card = tk.Frame(self, bg="white", highlightthickness=1, highlightbackground="#E0E0E0")
+        card.pack(padx=22, pady=8, fill="x")
 
-        # Botones login
-        btn_frame = tk.Frame(self, bg=_BG)
-        btn_frame.pack(pady=15)
-        login_btn = tk.Button(btn_frame, text="Iniciar Sesión", font=("Segoe UI", 12, "bold"), bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK, activeforeground="white", relief="flat", width=20, command=self.authenticate)
-        login_btn.pack(pady=(5, 12), fill="x")
-        # Funcionalidad de registro eliminada (solicitado)
+        tk.Label(card, text="Inicia sesión para continuar", bg="white", fg=_TEXT, font=("Segoe UI", 12)).pack(anchor="w", padx=16, pady=(16, 6))
 
+        form = tk.Frame(card, bg="white")
+        form.pack(padx=16, pady=(0, 16), fill="x")
+
+        # Usuario
+        user_row = tk.Frame(form, bg="white")
+        user_row.pack(fill="x", pady=6)
+        tk.Label(user_row, text="Usuario", bg="white", fg=_TEXT, font=("Segoe UI", 11)).pack(anchor="w")
+        self.username_entry = tk.Entry(user_row, font=("Segoe UI", 12))
+        self.username_entry.pack(fill="x", ipady=6)
+
+        # Contraseña + botón ojo
+        pass_row = tk.Frame(form, bg="white")
+        pass_row.pack(fill="x", pady=6)
+        tk.Label(pass_row, text="Contraseña", bg="white", fg=_TEXT, font=("Segoe UI", 11)).pack(anchor="w")
+        pass_box = tk.Frame(pass_row, bg="white")
+        pass_box.pack(fill="x")
+        self.password_entry = tk.Entry(pass_box, show="*", font=("Segoe UI", 12))
+        self.password_entry.pack(side="left", fill="x", expand=True, ipady=6)
+
+        if self._eye_icon:
+            toggle_btn = tk.Button(
+                pass_box, image=self._eye_icon, bd=0, bg="white", activebackground="white",
+                cursor="hand2", command=self._toggle_user_password
+            )
+        else:
+            toggle_btn = tk.Button(
+                pass_box, text="Mostrar", bd=0, bg="white", fg=_PRIMARY, activebackground="white",
+                cursor="hand2", command=self._toggle_user_password
+            )
+        toggle_btn.pack(side="left", padx=(8, 0))
+
+        # Botón entrar
+        btn = tk.Button(
+            card, text="Iniciar sesión", font=("Segoe UI", 12, "bold"),
+            bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK,
+            activeforeground="white", relief="flat", height=2, command=self.authenticate
+        )
+        btn.pack(fill="x", padx=16, pady=(4, 14))
+
+        # Link para administrador
+        link = tk.Button(
+            card, text="¿Entrar como administrador?", bd=0, bg="white",
+            fg=_PRIMARY, cursor="hand2", font=("Segoe UI", 10, "underline"),
+            activebackground="white", activeforeground=_PRIMARY,
+            command=self.build_admin_ui
+        )
+        link.pack(pady=(0, 6))
+
+        # Bind teclas
         self.username_entry.bind('<Return>', lambda e: self.password_entry.focus())
         self.password_entry.bind('<Return>', lambda e: self.authenticate())
         self.username_entry.focus()
 
+    def _toggle_user_password(self):
+        self._user_pw_visible = not self._user_pw_visible
+        self.password_entry.config(show="" if self._user_pw_visible else "*")
+
+    # ------------- Login admin -------------
     def build_admin_ui(self):
         self.clear_ui()
-        header = tk.Frame(self, bg=_PRIMARY, height=60)
+        self._load_common_icons()
+
+        header = tk.Frame(self, bg=_PRIMARY, height=64)
         header.pack(fill="x")
-        # Botón regresar con imagen
+
+        tk.Label(
+            header, text="Acceso administrador", bg=_PRIMARY, fg="white",
+            font=("Segoe UI", 16, "bold")
+        ).pack(pady=14)
+
+        # Avatar admin
+        avatar = tk.Frame(self, bg=_BG)
+        avatar.pack(pady=(28, 6))
         try:
-            arrow_img_path = os.path.join(os.path.dirname(__file__), "..", "img", "flecha-derecha.png")
-            arrow_img_path = os.path.abspath(arrow_img_path)
-            arrow_img = Image.open(arrow_img_path).resize((24, 24), Image.LANCZOS)
-            self.arrow_icon = ImageTk.PhotoImage(arrow_img)
-            back_btn = tk.Button(header, image=self.arrow_icon, text=" Usuario", compound="left",
-                                 bg=_PRIMARY, fg="white", bd=0, activebackground=_PRIMARY_DARK,
-                                 cursor="hand2", font=("Segoe UI", 11, "bold"),
-                                 command=self.build_login_ui)
-        except Exception:
-            back_btn = tk.Button(header, text="← Usuario", bg=_PRIMARY, fg="white", bd=0,
-                                 activebackground=_PRIMARY_DARK, cursor="hand2",
-                                 font=("Segoe UI", 11, "bold"), command=self.build_login_ui)
-        back_btn.pack(side="left", padx=18, pady=10)
-        title = tk.Label(header, text="", bg=_PRIMARY, fg="white", font=("Segoe UI", 16, "bold"))
-        title.pack(pady=15)
-        # Imagen admin
-        try:
-            img_path = os.path.join(os.path.dirname(__file__), "..", "img", "admin.png")
-            img_path = os.path.abspath(img_path)
-            admin_img = Image.open(img_path).resize((110, 110), Image.LANCZOS)
-            mask = Image.new('L', (110, 110), 0)
+            img_path = self._get_img_path("bruni.png")  # usar icono de admin
+            admin_img = Image.open(img_path).resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+            mask = Image.new('L', (AVATAR_SIZE, AVATAR_SIZE), 0)
             draw = ImageDraw.Draw(mask)
-            draw.ellipse((0, 0, 110, 110), fill=255)
+            draw.ellipse((0, 0, AVATAR_SIZE, AVATAR_SIZE), fill=255)
             admin_img.putalpha(mask)
             admin_photo = ImageTk.PhotoImage(admin_img)
-            img_label = tk.Label(self, image=admin_photo, bg=_BG)
-            img_label.image = admin_photo
-            img_label.pack(pady=(25, 10))
+            lbl = tk.Label(avatar, image=admin_photo, bg=_BG)
+            lbl.image = admin_photo
+            lbl.pack()
         except Exception:
-            img_label = tk.Label(self, text="👤", font=("Segoe UI", 48), bg=_BG, fg=_PRIMARY)
-            img_label.pack(pady=(25, 10))
-        # Formulario admin
-        form_frame = tk.Frame(self, bg=_BG)
-        form_frame.pack(pady=10)
-        tk.Label(form_frame, text="Usuario Admin:", font=("Segoe UI", 12), bg=_BG, fg=_TEXT).grid(row=0, column=0, sticky="e", padx=10, pady=10)
-        self.admin_username_entry = tk.Entry(form_frame, font=("Segoe UI", 12), width=25)
-        self.admin_username_entry.grid(row=0, column=1, padx=10, pady=10)
-        tk.Label(form_frame, text="Contraseña:", font=("Segoe UI", 12), bg=_BG, fg=_TEXT).grid(row=1, column=0, sticky="e", padx=10, pady=10)
-        self.admin_password_entry = tk.Entry(form_frame, show="*", font=("Segoe UI", 12), width=25)
-        self.admin_password_entry.grid(row=1, column=1, padx=10, pady=10)
-        btn_frame = tk.Frame(self, bg=_BG)
-        btn_frame.pack(pady=15)
-        login_btn = tk.Button(btn_frame, text="Entrar", font=("Segoe UI", 12, "bold"), bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK, activeforeground="white", relief="flat", width=20, command=self.authenticate_admin)
-        login_btn.pack(pady=(5, 12), fill="x")
+            tk.Label(avatar, text="👤", font=("Segoe UI", 48), bg=_BG, fg=_PRIMARY).pack()
+
+        # Card admin
+        card = tk.Frame(self, bg="white", highlightthickness=1, highlightbackground="#E0E0E0")
+        card.pack(padx=22, pady=8, fill="x")
+
+        tk.Label(card, text="Ingresa con credenciales de administrador", bg="white", fg=_TEXT, font=("Segoe UI", 12)).pack(anchor="w", padx=16, pady=(16, 6))
+
+        form = tk.Frame(card, bg="white")
+        form.pack(padx=16, pady=(0, 16), fill="x")
+
+        # Usuario admin
+        user_row = tk.Frame(form, bg="white")
+        user_row.pack(fill="x", pady=6)
+        tk.Label(user_row, text="Usuario", bg="white", fg=_TEXT, font=("Segoe UI", 11)).pack(anchor="w")
+        self.admin_username_entry = tk.Entry(user_row, font=("Segoe UI", 12))
+        self.admin_username_entry.pack(fill="x", ipady=6)
+
+        # Contraseña admin + ojo
+        pass_row = tk.Frame(form, bg="white")
+        pass_row.pack(fill="x", pady=6)
+        tk.Label(pass_row, text="Contraseña", bg="white", fg=_TEXT, font=("Segoe UI", 11)).pack(anchor="w")
+        pass_box = tk.Frame(pass_row, bg="white")
+        pass_box.pack(fill="x")
+        self.admin_password_entry = tk.Entry(pass_box, show="*", font=("Segoe UI", 12))
+        self.admin_password_entry.pack(side="left", fill="x", expand=True, ipady=6)
+
+        if self._eye_icon:
+            toggle_btn = tk.Button(
+                pass_box, image=self._eye_icon, bd=0, bg="white", activebackground="white",
+                cursor="hand2", command=self._toggle_admin_password
+            )
+        else:
+            toggle_btn = tk.Button(
+                pass_box, text="Mostrar", bd=0, bg="white", fg=_PRIMARY, activebackground="white",
+                cursor="hand2", command=self._toggle_admin_password
+            )
+        toggle_btn.pack(side="left", padx=(8, 0))
+
+        # Botón entrar admin
+        btn = tk.Button(
+            card, text="Entrar", font=("Segoe UI", 12, "bold"),
+            bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK,
+            activeforeground="white", relief="flat", height=2, command=self.authenticate_admin
+        )
+        btn.pack(fill="x", padx=16, pady=(4, 14))
+
+        # Link volver a usuario
+        link = tk.Button(
+            card, text="← Volver a acceso de usuario", bd=0, bg="white",
+            fg=_PRIMARY, cursor="hand2", font=("Segoe UI", 10, "underline"),
+            activebackground="white", activeforeground=_PRIMARY,
+            command=self.build_login_ui
+        )
+        link.pack(pady=(0, 6))
+
+        # Binds
         self.admin_username_entry.bind('<Return>', lambda e: self.admin_password_entry.focus())
         self.admin_password_entry.bind('<Return>', lambda e: self.authenticate_admin())
         self.admin_username_entry.focus()
 
+    def _toggle_admin_password(self):
+        self._admin_pw_visible = not self._admin_pw_visible
+        self.admin_password_entry.config(show="" if self._admin_pw_visible else "*")
+
+    # ------------- Autenticación (sin cambios de lógica) -------------
     def authenticate(self):
         username = self.username_entry.get()
         password = self.password_entry.get()
