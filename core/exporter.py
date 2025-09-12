@@ -4,6 +4,10 @@ import datetime
 from tkinter import messagebox, filedialog
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.geometry import PositiveSize2D
+from openpyxl.utils.units import pixels_to_EMU
+from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 from core.auth import agregar_historial
 import pandas as pd
 
@@ -101,16 +105,39 @@ class NutrimentalExporter:
         elif es_bebida_sin_calorias and sodio_mg >= 45:
             sellos["exceso_sodio"] = True
 
-        # Mapeo de sello -> imagen, celda y tamaño deseado (px)
+        # Mapeo de sello -> imagen y celda (todas contiguas)
         project_root = os.path.dirname(os.path.dirname(__file__))
         ruta_base = os.path.abspath(os.path.join(project_root, "img", "Sellos"))
+
+        # Calcular un tamaño uniforme que quepa en las columnas M–Q (sin tocar la plantilla)
+        def _col_px(letter: str) -> int:
+            # ancho en unidades Excel -> píxeles aprox (width*7 + 5)
+            try:
+                width = ws.column_dimensions[letter].width
+            except Exception:
+                width = None
+            if width in (None, 0):
+                width = ws.sheet_format.defaultColWidth or 8.43
+            return int(round(width * 7 + 5))
+
+        try:
+            col_letters = ["M", "N", "O", "P", "Q"]
+            min_col_px = min(_col_px(c) for c in col_letters)
+            GAP_INNER = 6  # margen interno a cada lado dentro de la columna
+            side = max(64, min(140, min_col_px - GAP_INNER * 2))
+            STAMP_SIZE = (side, side)
+        except Exception:
+            STAMP_SIZE = (120, 120)
+
+        # Offsets horizontales para CENTRAR el sello en cada columna (distancia visual uniforme)
+        x_offsets = {c: max(0, (_col_px(c) - STAMP_SIZE[0]) // 2) for c in ["M", "N", "O", "P", "Q"]}
+
         sellos_config = {
-            "exceso_azucares": {"imagen": "azucares.jpg", "celda": "M3", "size": (160,160)},
-            "exceso_calorias": {"imagen": "calorias.jpg", "celda": "O3", "size": (160,160)},
-            "exceso_grasas_saturadas": {"imagen": "saturadas.jpg", "celda": "Q3", "size": (160,160)},
-            # SODIO y GRASAS TRANS ahora en fila 14 (M14 y O14)
-            "exceso_sodio": {"imagen": "sodio.jpg", "celda": "M14", "size": (140,140)},
-            "exceso_grasas_trans": {"imagen": "trans.jpg", "celda": "O14", "size": (140,140)}
+            "exceso_azucares":           {"imagen": "azucares.jpg",   "celda": "M5", "size": STAMP_SIZE},
+            "exceso_calorias":           {"imagen": "calorias.jpg",   "celda": "N5", "size": STAMP_SIZE},
+            "exceso_grasas_saturadas":   {"imagen": "saturadas.jpg",  "celda": "O5", "size": STAMP_SIZE},
+            "exceso_sodio":              {"imagen": "sodio.jpg",      "celda": "P5", "size": STAMP_SIZE},
+            "exceso_grasas_trans":       {"imagen": "trans.jpg",      "celda": "Q5", "size": STAMP_SIZE},
         }
 
         for key, aplica in sellos.items():
@@ -119,18 +146,32 @@ class NutrimentalExporter:
             cfg = sellos_config.get(key)
             if not cfg:
                 continue
+
             ruta_imagen = os.path.join(ruta_base, cfg["imagen"])
             if not os.path.exists(ruta_imagen):
                 print(f"[exporter] imagen no encontrada: {ruta_imagen}")
                 continue
+
             try:
                 img = XLImage(ruta_imagen)
-                # tamaño mayor sin tocar celdas: establece width/height más grandes
-                width_px, height_px = cfg.get("size", (140,140))
-                img.width = width_px
-                img.height = height_px
-                # agregar imagen anclada en la celda solicitada; no modificará filas/columnas
-                ws.add_image(img, cfg["celda"])
+                w, h = cfg.get("size", STAMP_SIZE)
+                img.width = w
+                img.height = h
+
+                # Anclar con offset horizontal para centrar el sello en su columna
+                col_letter, row_number = coordinate_from_string(cfg["celda"])
+                col_idx = column_index_from_string(col_letter) - 1  # 0-based para AnchorMarker
+                row_idx = row_number - 1
+
+                xoff = pixels_to_EMU(x_offsets.get(col_letter, 0))
+                yoff = pixels_to_EMU(0)  # mantener arriba de la celda
+
+                img.anchor = OneCellAnchor(
+                    _from=AnchorMarker(col=col_idx, colOff=xoff, row=row_idx, rowOff=yoff),
+                    ext=PositiveSize2D(pixels_to_EMU(w), pixels_to_EMU(h))
+                )
+
+                ws.add_image(img)  # no altera filas/columnas
             except Exception as e:
                 print(f"[exporter] fallo al insertar imagen {ruta_imagen}: {e}")
 
