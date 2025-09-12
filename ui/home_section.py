@@ -9,6 +9,10 @@ class HomeSection:
         self._hero_images = []  # lista de PIL Images
         self._hero_index = 0
         self._hero_photo_cache = {}  # cache de PhotoImage redimensionados
+        # textos del hero (sin recuadro)
+        self._hero_title_text = 'Laboratorio de Alimentos'
+        self._hero_sub_text = 'Facultad de Ciencias Químicas - UANL'
+        self._hero_user_text = ''
         
     def show_home_section(self):
         """Mostrar sección de inicio con hero/carousel y texto original."""
@@ -22,28 +26,7 @@ class HomeSection:
         main_frame = tk.Frame(self.parent.content_frame, bg=_BG)
         main_frame.pack(fill='both', expand=True)
 
-        # HERO
-        hero_wrapper = tk.Frame(main_frame, bg=_BG, height=320)
-        hero_wrapper.pack(fill='x', side='top')
-        hero_wrapper.pack_propagate(False)
-        self._hero_canvas = tk.Canvas(hero_wrapper, bg=_PRIMARY, highlightthickness=0, bd=0)
-        self._hero_canvas.pack(fill='both', expand=True)
-        overlay = tk.Frame(hero_wrapper, bg=_PRIMARY)
-        overlay.place(relx=0.05, rely=0.15, relwidth=0.55)
-        self._hero_title = tk.Label(overlay, text='Laboratorio de Alimentos', fg='white', bg=_PRIMARY, font=('Segoe UI',30,'bold'))
-        self._hero_title.pack(anchor='w')
-        self._hero_sub = tk.Label(overlay, text='Facultad de Ciencias Químicas - UANL', fg='white', bg=_PRIMARY, font=('Segoe UI',14))
-        self._hero_sub.pack(anchor='w', pady=(6,0))
-        self._hero_user = tk.Label(overlay, text=f"Bienvenido, {getattr(self.parent,'username','') or 'Usuario'}", fg=_EMPHASIS, bg=_PRIMARY, font=('Segoe UI',14,'bold'))
-        self._hero_user.pack(anchor='w', pady=(18,0))
-
-        self._load_hero_images()
-        self._draw_current_hero()
-        hero_wrapper.bind('<Configure>', lambda e: self._draw_current_hero())
-        if len(self._hero_images) > 1:
-            self.parent.after(6000, self._rotate_hero)
-
-        # BODY scrollable
+        # CONTENEDOR SCROLLABLE (ahora incluye el HERO para que no sea estático)
         body = tk.Frame(main_frame, bg=_BG)
         body.pack(fill='both', expand=True)
         canvas = tk.Canvas(body, bg=_BG, highlightthickness=0, bd=0)
@@ -62,6 +45,22 @@ class HomeSection:
         inner.bind('<Configure>', _sync)
         bind_mousewheel(canvas, inner)
         canvas.configure(yscrollcommand=vsb.set)
+
+        # HERO dentro del área scrollable (sin cuadro rojo)
+        hero_wrapper = tk.Frame(inner, bg=_BG, height=320)
+        hero_wrapper.pack(fill='x', side='top')
+        hero_wrapper.pack_propagate(False)
+        self._hero_canvas = tk.Canvas(hero_wrapper, bg=_PRIMARY, highlightthickness=0, bd=0)
+        self._hero_canvas.pack(fill='both', expand=True)
+
+        # actualizar textos (incluye usuario)
+        self._hero_user_text = f"Bienvenido, {getattr(self.parent,'username','') or 'Usuario'}"
+
+        self._load_hero_images()
+        self._draw_current_hero()
+        hero_wrapper.bind('<Configure>', lambda e: self._draw_current_hero())
+        if len(self._hero_images) > 1:
+            self.parent.after(6000, self._rotate_hero)
 
         # Card texto original (mayor contraste y barra lateral)
         card = tk.Frame(inner, bg=_BG, bd=0)
@@ -156,8 +155,6 @@ class HomeSection:
         tk.Label(footer_bar, text='FCQ-UANL • Laboratorio de Alimentos • Uso interno académico', fg='white', bg=_PRIMARY,
                  font=('Segoe UI',9,'bold')).pack(anchor='center', pady=10)
 
-    # Accesos rápidos eliminado intencionalmente
-
         # Ajuste scroll
         def _update_scroll_region(e=None):
             canvas.configure(scrollregion=canvas.bbox("all"))
@@ -222,6 +219,11 @@ class HomeSection:
         self._hero_photo_cache[key] = photo
         return photo
 
+    def _draw_text_with_shadow(self, canvas, x, y, text, font, fill='white', shadow='black', offset=2, tags=()):
+        # Sombra ligera para legibilidad
+        canvas.create_text(x+offset, y+offset, text=text, fill=shadow, font=font, anchor='nw', tags=tags)
+        canvas.create_text(x, y, text=text, fill=fill, font=font, anchor='nw', tags=tags)
+
     def _draw_current_hero(self):
         # Ensure canvas has a usable size; retry shortly if not yet laid out
         try:
@@ -244,6 +246,29 @@ class HomeSection:
             self._hero_canvas.create_image(0, 0, image=photo, anchor='nw')
             # keep reference to avoid GC
             self._hero_canvas.image = photo
+
+            # Dibujar textos directamente sobre el canvas (sin recuadro rojo)
+            self._hero_canvas.delete('hero_text')
+            left = int(w * 0.06)
+            y_title = int(h * 0.18)
+            y_sub = y_title + 46
+            y_user = y_sub + 34
+
+            # Colores y fuente
+            title_font = ('Segoe UI', 30, 'bold')
+            sub_font   = ('Segoe UI', 14)
+            user_font  = ('Segoe UI', 14, 'bold')
+
+            # Sombra suave
+            shadow_color = '#2a2a2a'
+
+            self._draw_text_with_shadow(self._hero_canvas, left, y_title, self._hero_title_text,
+                                        title_font, fill='white', shadow=shadow_color, offset=2, tags=('hero_text',))
+            self._draw_text_with_shadow(self._hero_canvas, left, y_sub, self._hero_sub_text,
+                                        sub_font, fill='white', shadow=shadow_color, offset=2, tags=('hero_text',))
+            self._draw_text_with_shadow(self._hero_canvas, left, y_user, self._hero_user_text,
+                                        user_font, fill=_EMPHASIS, shadow=shadow_color, offset=1, tags=('hero_text',))
+
         except Exception:
             # If composition fails, schedule a retry instead of silently leaving background
             try:
@@ -276,6 +301,3 @@ class HomeSection:
             return photo
         except Exception:
             return None
-        self._hero_photo_cache.clear()
-        self._draw_current_hero()
-        self.parent.after(6000, self._rotate_hero)
