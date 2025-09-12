@@ -29,6 +29,11 @@ class LoginWindow(tk.Tk):
         self._user_pw_visible = False
         self._admin_pw_visible = False
 
+        # Placeholders
+        self._placeholders = {}  # entry -> text
+        self._ph_color = "#9AA1A9"
+        self._fg_color = "#111111"
+
         # Track de jobs programados con after
         self._after_jobs = set()
         # Cerrar de forma segura
@@ -85,7 +90,7 @@ class LoginWindow(tk.Tk):
         # Si no hay imagen, se usará texto en los botones
 
         # Admin icon
-        
+        # (no requerido por ahora)
 
     def _apply_input_style(self, entry):
         # Estilo de campo moderno (plano, sin borde, realce al foco)
@@ -99,6 +104,56 @@ class LoginWindow(tk.Tk):
             insertbackground="#111111",
         )
 
+    def _is_placeholder(self, entry):
+        ph = self._placeholders.get(entry, None)
+        return ph is not None and entry.get() == ph
+
+    def _set_placeholder(self, entry, text, is_password=False, group="user"):
+        # Inicial
+        self._placeholders[entry] = text
+        entry.delete(0, tk.END)
+        entry.insert(0, text)
+        entry.config(fg=self._ph_color)
+        if is_password:
+            # Mostrar placeholder en claro (sin *)
+            entry.config(show="")
+
+        def on_focus_in(e):
+            if self._is_placeholder(entry):
+                entry.delete(0, tk.END)
+                entry.config(fg=self._fg_color)
+                if is_password:
+                    visible = (self._user_pw_visible if group == "user" else self._admin_pw_visible)
+                    entry.config(show="" if visible else "*")
+
+        def on_focus_out(e):
+            if entry.get() == "":
+                entry.insert(0, text)
+                entry.config(fg=self._ph_color)
+                if is_password:
+                    entry.config(show="")
+
+            # Recalcular estado del botón
+            if group == "user":
+                self._update_user_login_state()
+            else:
+                self._update_admin_login_state()
+
+        def on_key(e):
+            if group == "user":
+                self._update_user_login_state()
+            else:
+                self._update_admin_login_state()
+
+        entry.bind("<FocusIn>", on_focus_in)
+        entry.bind("<FocusOut>", on_focus_out)
+        entry.bind("<KeyRelease>", on_key)
+
+    def _get_clean_value(self, entry):
+        val = entry.get().strip()
+        ph = self._placeholders.get(entry)
+        return "" if val == ph else val
+
     def clear_ui(self):
         # Antes de destruir widgets, cancelar callbacks pendientes
         self._cancel_all_afters()
@@ -110,7 +165,7 @@ class LoginWindow(tk.Tk):
         self.clear_ui()
         self._load_common_icons()
 
-        # Encabezado
+        # Encabezado (alineado a la izquierda)
         header = tk.Frame(self, bg=_PRIMARY, height=64)
         header.pack(fill="x")
         tk.Label(
@@ -153,6 +208,7 @@ class LoginWindow(tk.Tk):
         self.username_entry = tk.Entry(user_row, font=("Segoe UI", 12))
         self._apply_input_style(self.username_entry)
         self.username_entry.pack(fill="x", ipady=8)
+        self._set_placeholder(self.username_entry, "Ej.: nombre.apellido", is_password=False, group="user")
 
         # Contraseña + botón ojo
         pass_row = tk.Frame(form, bg=_BG)
@@ -163,6 +219,8 @@ class LoginWindow(tk.Tk):
         self.password_entry = tk.Entry(pass_box, show="*", font=("Segoe UI", 12))
         self._apply_input_style(self.password_entry)
         self.password_entry.pack(side="left", fill="x", expand=True, ipady=8)
+        # Placeholder password
+        self._set_placeholder(self.password_entry, "Ingresa tu contraseña", is_password=True, group="user")
 
         if self._eye_icon:
             toggle_btn = tk.Button(
@@ -176,13 +234,14 @@ class LoginWindow(tk.Tk):
             )
         toggle_btn.pack(side="left", padx=(8, 0))
 
-        # Botón entrar (plano, ancho)
-        btn = tk.Button(
+        # Botón entrar (plano, ancho) — empieza deshabilitado
+        self._user_login_btn = tk.Button(
             content, text="Iniciar sesión", font=("Segoe UI", 12, "bold"),
             bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK,
             activeforeground="white", relief="flat", height=2, command=self.authenticate
         )
-        btn.pack(fill="x", pady=(14, 8))
+        self._user_login_btn.pack(fill="x", pady=(14, 8))
+        self._disable_button(self._user_login_btn)
 
         # Link para administrador
         link = tk.Button(
@@ -198,9 +257,30 @@ class LoginWindow(tk.Tk):
         self.password_entry.bind('<Return>', lambda e: self.authenticate())
         self.username_entry.focus()
 
+        # Estado inicial
+        self._update_user_login_state()
+
+    def _disable_button(self, btn):
+        btn.config(state="disabled", bg="#C5C9CF", activebackground="#C5C9CF", cursor="arrow")
+
+    def _enable_button(self, btn):
+        btn.config(state="normal", bg=_PRIMARY, activebackground=_PRIMARY_DARK, cursor="hand2")
+
+    def _update_user_login_state(self):
+        u = self._get_clean_value(self.username_entry)
+        p = self._get_clean_value(self.password_entry)
+        if (u == "") and (p == ""):
+            self._disable_button(self._user_login_btn)
+        else:
+            self._enable_button(self._user_login_btn)
+
     def _toggle_user_password(self):
         self._user_pw_visible = not self._user_pw_visible
-        self.password_entry.config(show="" if self._user_pw_visible else "*")
+        # Si hay placeholder, mantenerlo visible sin asteriscos
+        if self._is_placeholder(self.password_entry):
+            self.password_entry.config(show="")
+        else:
+            self.password_entry.config(show="" if self._user_pw_visible else "*")
 
     # ------------- Login admin -------------
     def build_admin_ui(self):
@@ -209,11 +289,11 @@ class LoginWindow(tk.Tk):
 
         header = tk.Frame(self, bg=_PRIMARY, height=64)
         header.pack(fill="x")
-
+        # Alineado a la izquierda (igual al de usuario)
         tk.Label(
             header, text="Acceso administrador", bg=_PRIMARY, fg="white",
             font=("Segoe UI", 16, "bold")
-        ).pack(pady=14)
+        ).pack(side="left", padx=18, pady=14)
 
         # Avatar admin
         avatar = tk.Frame(self, bg=_BG)
@@ -248,6 +328,7 @@ class LoginWindow(tk.Tk):
         self.admin_username_entry = tk.Entry(user_row, font=("Segoe UI", 12))
         self._apply_input_style(self.admin_username_entry)
         self.admin_username_entry.pack(fill="x", ipady=8)
+        self._set_placeholder(self.admin_username_entry, "Ej.: admin.uanl", is_password=False, group="admin")
 
         # Contraseña admin + ojo
         pass_row = tk.Frame(form, bg=_BG)
@@ -258,6 +339,7 @@ class LoginWindow(tk.Tk):
         self.admin_password_entry = tk.Entry(pass_box, show="*", font=("Segoe UI", 12))
         self._apply_input_style(self.admin_password_entry)
         self.admin_password_entry.pack(side="left", fill="x", expand=True, ipady=8)
+        self._set_placeholder(self.admin_password_entry, "Contraseña de administrador", is_password=True, group="admin")
 
         if self._eye_icon:
             toggle_btn = tk.Button(
@@ -271,13 +353,14 @@ class LoginWindow(tk.Tk):
             )
         toggle_btn.pack(side="left", padx=(8, 0))
 
-        # Botón entrar admin
-        btn = tk.Button(
+        # Botón entrar admin — empieza deshabilitado
+        self._admin_login_btn = tk.Button(
             content, text="Entrar", font=("Segoe UI", 12, "bold"),
             bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK,
             activeforeground="white", relief="flat", height=2, command=self.authenticate_admin
         )
-        btn.pack(fill="x", pady=(14, 8))
+        self._admin_login_btn.pack(fill="x", pady=(14, 8))
+        self._disable_button(self._admin_login_btn)
 
         # Link volver a usuario
         link = tk.Button(
@@ -293,15 +376,39 @@ class LoginWindow(tk.Tk):
         self.admin_password_entry.bind('<Return>', lambda e: self.authenticate_admin())
         self.admin_username_entry.focus()
 
+        # Estado inicial
+        self._update_admin_login_state()
+
+    def _update_admin_login_state(self):
+        u = self._get_clean_value(self.admin_username_entry)
+        p = self._get_clean_value(self.admin_password_entry)
+        if (u == "") and (p == ""):
+            self._disable_button(self._admin_login_btn)
+        else:
+            self._enable_button(self._admin_login_btn)
+
     def _toggle_admin_password(self):
         self._admin_pw_visible = not self._admin_pw_visible
-        self.admin_password_entry.config(show="" if self._admin_pw_visible else "*")
+        if self._is_placeholder(self.admin_password_entry):
+            self.admin_password_entry.config(show="")
+        else:
+            self.admin_password_entry.config(show="" if self._admin_pw_visible else "*")
 
-    # ------------- Autenticación (sin cambios de lógica) -------------
+    # ------------- Autenticación (robustecida) -------------
     def authenticate(self):
-        username = self.username_entry.get()
-        password = self.password_entry.get()
-        result = verificar_login(username, password)
+        username = self._get_clean_value(self.username_entry)
+        password = self._get_clean_value(self.password_entry)
+
+        if username == "" and password == "":
+            messagebox.showwarning("Campos vacíos", "Escribe tu usuario o contraseña para continuar.")
+            return
+
+        try:
+            result = verificar_login(username, password)
+        except Exception:
+            messagebox.showerror("Error", "No se pudo verificar las credenciales. Intenta de nuevo.")
+            return
+
         if isinstance(result, tuple) and result[0] is True:
             rol = result[1]
             if rol == "usuario":
@@ -311,12 +418,22 @@ class LoginWindow(tk.Tk):
             else:
                 messagebox.showerror("Acceso denegado", "Solo los usuarios pueden acceder desde este login.")
         else:
-            messagebox.showerror("Error", "Usuario o contraseña incorrectos")
+            messagebox.showerror("Error", "Usuario o contraseña incorrectos.")
 
     def authenticate_admin(self):
-        username = self.admin_username_entry.get()
-        password = self.admin_password_entry.get()
-        result = verificar_login(username, password)
+        username = self._get_clean_value(self.admin_username_entry)
+        password = self._get_clean_value(self.admin_password_entry)
+
+        if username == "" and password == "":
+            messagebox.showwarning("Campos vacíos", "Escribe usuario o contraseña de administrador.")
+            return
+
+        try:
+            result = verificar_login(username, password)
+        except Exception:
+            messagebox.showerror("Error", "No se pudo verificar las credenciales. Intenta de nuevo.")
+            return
+
         if isinstance(result, tuple) and result[0] is True and result[1] == "admin":
             # Guardar resultado y salir del mainloop para que main.py abra la interfaz admin
             self.login_info = {"username": username, "rol": "admin"}

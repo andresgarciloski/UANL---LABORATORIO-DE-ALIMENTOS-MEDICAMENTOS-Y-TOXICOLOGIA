@@ -168,69 +168,78 @@ class HistorialModule:
         filtrado = filter_historial(historial, nombre=nombre, fecha=fecha, usuario_filter=usuario_filtro)
 
         # Encabezados según rol
-        if getattr(self.parent, 'rol', '') == "admin":
+        admin = getattr(self.parent, 'rol', '') == "admin"
+        if admin:
             headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Usuario ID", "Usuario", "Acciones"]
+            #             0      1         2             3        4        5            6          7
+            weights =  [0,     1,        3,            0,       0,       0,           1,         0]
+            minsizes = [70,   220,      520,          110,      90,      90,         160,       220]
         else:
             headers = ["ID", "Nombre", "Descripción", "Fecha", "Hora", "Acciones"]
+            #             0      1         2             3        4        5
+            weights =  [0,     1,        3,            0,       0,       0]
+            minsizes = [70,   240,      560,          110,      90,     220]
 
-        # Encabezados estilizados
-        header_frame = tk.Frame(self.tabla_historial_frame, bg=_PRIMARY)
-        header_frame.pack(fill="x", padx=2)
+        # Contenedor de la tabla (un solo grid para cabecera y filas)
+        table = tk.Frame(self.tabla_historial_frame, bg=_BG)
+        table.pack(fill="both", expand=True, padx=2, pady=(2, 10))
+
+        # Configurar columnas del grid
+        for col, (w, m) in enumerate(zip(weights, minsizes)):
+            table.grid_columnconfigure(col, weight=w, minsize=m)
+
+        # Fila encabezado
         for col, h in enumerate(headers):
-            lbl = tk.Label(header_frame, text=h, bg=_PRIMARY, fg="white", font=("Segoe UI", 10, "bold"), padx=8, pady=8)
-            lbl.grid(row=0, column=col, sticky="nsew", padx=1)
-            header_frame.grid_columnconfigure(col, weight=1, minsize=100)
-
-        body_frame = tk.Frame(self.tabla_historial_frame, bg=_BG)
-        body_frame.pack(fill="both", expand=True)
+            lbl = tk.Label(table, text=h, bg=_PRIMARY, fg="white", font=("Segoe UI", 10, "bold"), padx=8, pady=8)
+            lbl.grid(row=0, column=col, sticky="nsew", padx=1, pady=(0, 1))
 
         if not filtrado:
             no_data_label = tk.Label(
-                body_frame,
+                table,
                 text="No se encontraron registros.",
                 font=("Segoe UI", 11),
                 fg=_TEXT,
                 bg=_BG,
                 pady=20
             )
-            no_data_label.pack()
+            # Colocar ocupando todas las columnas
+            no_data_label.grid(row=1, column=0, columnspan=len(headers), sticky="nsew")
             return
 
-        # filas
-        for item in filtrado:
+        # Crear filas (una por registro)
+        desc_labels = []  # para ajustar wraplength después
+        for r, item in enumerate(filtrado, start=1):
             try:
                 Id, Nombre, Descripcion, Fecha, Hora, UsuarioId, Archivo = item[:7]
             except Exception:
                 continue
 
-            row_frame = tk.Frame(body_frame, bg=_BG, bd=0, relief="flat")
-            row_frame.pack(fill="x", padx=2, pady=6)
+            # celdas comunes
+            tk.Label(table, text=str(Id), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w").grid(row=r, column=0, sticky="nsew", padx=8, pady=6)
+            tk.Label(table, text=str(Nombre), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w").grid(row=r, column=1, sticky="nsew", padx=8, pady=6)
 
-            # Column labels (use grid inside row_frame)
-            col0 = tk.Label(row_frame, text=str(Id), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
-            col0.grid(row=0, column=0, sticky="nsew", padx=8)
-            col1 = tk.Label(row_frame, text=str(Nombre), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
-            col1.grid(row=0, column=1, sticky="nsew", padx=8)
-            col2 = tk.Label(row_frame, text=str(Descripcion), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w", wraplength=600, justify="left")
-            col2.grid(row=0, column=2, sticky="nsew", padx=8)
-            col3 = tk.Label(row_frame, text=str(Fecha), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
-            col3.grid(row=0, column=3, sticky="nsew", padx=8)
-            col4 = tk.Label(row_frame, text=str(Hora), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
-            col4.grid(row=0, column=4, sticky="nsew", padx=8)
+            lbl_desc = tk.Label(table, text=str(Descripcion), bg=_BG, fg=_TEXT, font=("Segoe UI", 10),
+                                anchor="w", justify="left", wraplength=minsizes[2]-24)
+            lbl_desc.grid(row=r, column=2, sticky="nsew", padx=8, pady=6)
+            desc_labels.append(lbl_desc)
 
-            col_idx = 5  # posición inicial para acciones o columnas extra
-            if getattr(self.parent, 'rol', '') == "admin":
-                col_user = tk.Label(row_frame, text=str(UsuarioId), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
-                col_user.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
-                username = get_username_by_id(UsuarioId)
-                col_username = tk.Label(row_frame, text=username, bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w")
-                col_username.grid(row=0, column=col_idx, sticky="nsew", padx=8); col_idx += 1
+            tk.Label(table, text=str(Fecha), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w").grid(row=r, column=3, sticky="nsew", padx=8, pady=6)
+            tk.Label(table, text=str(Hora),  bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w").grid(row=r, column=4, sticky="nsew", padx=8, pady=6)
 
-            # acciones (preview / descargar / eliminar)
-            actions = tk.Frame(row_frame, bg=_BG)
-            actions.grid(row=0, column=col_idx, sticky="e", padx=8)
+            col_idx = 5
+            if admin:
+                tk.Label(table, text=str(UsuarioId), bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w").grid(row=r, column=5, sticky="nsew", padx=8, pady=6)
+                try:
+                    username = get_username_by_id(UsuarioId)
+                except Exception:
+                    username = "-"
+                tk.Label(table, text=username, bg=_BG, fg=_TEXT, font=("Segoe UI", 10), anchor="w").grid(row=r, column=6, sticky="nsew", padx=8, pady=6)
+                col_idx = 7
 
-            # Preview button (solo si hay archivo)
+            # Acciones
+            actions = tk.Frame(table, bg=_BG)
+            actions.grid(row=r, column=col_idx, sticky="e", padx=8, pady=6)
+
             eye_icon = self._load_icon('eye.jpg')
             if Archivo:
                 btn_prev = tk.Button(
@@ -238,39 +247,40 @@ class HistorialModule:
                     image=eye_icon if eye_icon else None,
                     text="Preview" if not eye_icon else "",
                     compound="left",
-                    bg=_PRIMARY,
-                    fg="white",
-                    activebackground=_PRIMARY_DARK,
-                    bd=0,
-                    cursor="hand2",
+                    bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK,
+                    bd=0, cursor="hand2",
                     command=lambda archivo=Archivo, nombre=Nombre: self._preview_archivo(archivo, nombre)
                 )
             else:
                 btn_prev = tk.Button(actions, text="Preview", state="disabled", bg="#cccccc", fg="#666666", bd=0)
             btn_prev.pack(side="left", padx=4)
 
-            btn_desc = tk.Button(actions, text="Descargar", bg=_PRIMARY_DARK, fg="white", activebackground=_PRIMARY, bd=0, cursor="hand2",
-                                 command=lambda archivo=Archivo, nombre=Nombre: self._descargar_archivo(archivo, nombre))
-            btn_desc.pack(side="left", padx=4)
+            tk.Button(actions, text="Descargar", bg=_PRIMARY_DARK, fg="white", activebackground=_PRIMARY,
+                      bd=0, cursor="hand2",
+                      command=lambda archivo=Archivo, nombre=Nombre: self._descargar_archivo(archivo, nombre)).pack(side="left", padx=4)
 
-            # determinar permiso para eliminar
             can_delete = False
-            if getattr(self.parent, 'rol', '') == "admin":
+            if admin:
                 can_delete = True
             else:
                 current_user_id = self.parent.get_usuario_id() if hasattr(self.parent, 'get_usuario_id') else None
                 can_delete = (current_user_id == UsuarioId)
 
             if can_delete:
-                btn_del = tk.Button(actions, text="Eliminar", bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK, bd=0, cursor="hand2",
-                                    command=lambda id_hist=Id: self._eliminar_registro(id_hist))
+                tk.Button(actions, text="Eliminar", bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK,
+                          bd=0, cursor="hand2",
+                          command=lambda id_hist=Id: self._eliminar_registro(id_hist)).pack(side="left", padx=6)
             else:
-                btn_del = tk.Button(actions, text="Eliminar", bg="#cccccc", fg="#666666", bd=0, state="disabled")
-            btn_del.pack(side="left", padx=6)
+                tk.Button(actions, text="Eliminar", bg="#cccccc", fg="#666666", bd=0, state="disabled").pack(side="left", padx=6)
 
-            # configure columns weights inside row_frame
-            for c in range(col_idx + 1):
-                row_frame.grid_columnconfigure(c, weight=1)
+        # Ajustar el wraplength de la descripción al ancho real de su celda
+        def _adjust_wrap(_=None):
+            for lbl in desc_labels:
+                try:
+                    lbl.configure(wraplength=max(200, lbl.winfo_width()-16))
+                except Exception:
+                    pass
+        table.bind("<Configure>", _adjust_wrap)
 
     def _load_icon(self, filename):
         if filename in self._icons:
