@@ -6,8 +6,8 @@ from PIL import Image, ImageTk, ImageDraw
 # Nueva paleta (solicitada)
 # Principal: rojo suave, Hover: rojo profundo, Fondo claro, Texto principal, Secundario, Énfasis sutil
 _BG = "#F5F5F5"          # fondo claro neutro
-_PRIMARY = "#E53935"     # rojo suave principal
-_PRIMARY_DARK = "#C62828" # rojo profundo hover/activo
+_PRIMARY = "#C62828"     # rojo suave principal
+_PRIMARY_DARK = "#C62828"  # color principal
 _TEXT = "#212121"        # gris oscuro alta legibilidad
 _SECONDARY = "#607D8B"   # azul grisáceo suave
 _EMPHASIS = "#FFCDD2"    # rojo pastel para acentos suaves
