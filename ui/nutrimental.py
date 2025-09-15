@@ -101,33 +101,32 @@ class NutrimentalModule:
         tk.Label(header, text="Tabla Nutrimental", bg=_PRIMARY, fg='white', font=("Segoe UI",18,'bold')).pack(anchor='w', padx=18, pady=(10,0))
         tk.Label(header, text="Ingresa los datos base y genera la tabla oficial.", bg=_PRIMARY, fg='white', font=("Segoe UI",10)).pack(anchor='w', padx=18, pady=(0,8))
 
-        # Contenedor principal con PanedWindow (modern split)
-        paned = ttk.Panedwindow(root, orient='horizontal')
-        paned.pack(fill='both', expand=True)
+        # CONTENEDOR FIJO SIN PANEDWINDOW
+        content = tk.Frame(root, bg=_BG)
+        content.pack(fill='both', expand=True)
+        content.columnconfigure(0, weight=1, uniform='split')  # mitad izquierda
+        content.columnconfigure(1, weight=1, uniform='split')  # mitad derecha
+        content.rowconfigure(0, weight=1)     # NUEVO: que ambos paneles aprovechen el alto
 
-        # Panel de entradas (scrollable)
-        input_wrapper = tk.Frame(paned, bg=_BG)
-        paned.add(input_wrapper, weight=3)
+        # Panel izquierdo con scroll (define inner_inputs)
+        input_wrapper = tk.Frame(content, bg=_BG)
+        input_wrapper.grid(row=0, column=0, sticky='nsew')
         inputs_canvas = tk.Canvas(input_wrapper, bg=_BG, highlightthickness=0, bd=0)
         inputs_scroll = ttk.Scrollbar(input_wrapper, orient='vertical', command=inputs_canvas.yview)
+        inputs_canvas.configure(yscrollcommand=inputs_scroll.set)
         inputs_canvas.pack(side='left', fill='both', expand=True)
         inputs_scroll.pack(side='right', fill='y')
         inner_inputs = tk.Frame(inputs_canvas, bg=_BG)
-        win_id = inputs_canvas.create_window((0,0), window=inner_inputs, anchor='nw')
+        win_id = inputs_canvas.create_window((0, 0), window=inner_inputs, anchor='nw')
         inner_inputs.bind('<Configure>', lambda e: inputs_canvas.configure(scrollregion=inputs_canvas.bbox('all')))
-        def _sync_width(e):
-            try:
-                inputs_canvas.itemconfig(win_id, width=e.width)
-            except Exception:
-                pass
-        inputs_canvas.bind('<Configure>', _sync_width)
+        inputs_canvas.bind('<Configure>', lambda e: inputs_canvas.itemconfig(win_id, width=e.width))
         bind_mousewheel(inputs_canvas, inner_inputs)
 
         # Agrupar secciones dentro del panel de inputs
         self._create_basic_fields(inner_inputs)
         self._create_nutrimental_fields(inner_inputs)
 
-        # NUEVO: Botón "Calcular" centrado debajo de Datos nutricionales (panel izquierdo)
+        # Botón "Calcular" centrado debajo de Datos nutricionales (panel izquierdo)
         left_actions = tk.Frame(inner_inputs, bg=_BG)
         left_actions.pack(fill='x', padx=10, pady=(0, 10))
         tk.Frame(left_actions, bg=_BG).pack()  # separador fino
@@ -140,29 +139,19 @@ class NutrimentalModule:
         )
         calc_btn_left.pack(anchor='center', pady=4)
 
-        # Panel de resultados
-        results_panel = tk.Frame(paned, bg=_BG)
-        paned.add(results_panel, weight=4)
+        # Panel de resultados (50% del ancho, todo el alto)
+        results_panel = tk.Frame(content, bg=_BG)
+        results_panel.grid(row=0, column=1, sticky='nsew')
+        # NUEVO: que ocupe todo el alto
+        results_panel.grid_propagate(False)
+
         # Card resultados
         self._create_results_area(results_panel)
 
-        # Barra inferior de acciones (flotante en panel resultados)
+        # Barra inferior de acciones (en panel resultados)
         actions = tk.Frame(results_panel, bg=_BG)
         actions.pack(fill='x', pady=(4,10))
         self._create_buttons(actions)
-
-        # Ajustar un mínimo para que se perciba la división
-        try:
-            paned.sashpos(0, int(self.parent.winfo_width()*0.40))
-        except Exception:
-            pass
-
-        # Guardar referencias mínimas para compatibilidad (no se usa layout responsivo previo)
-        self._responsive_parent = None
-        try:
-            self._attach_tipo_trace()
-        except Exception:
-            pass
 
         # Decoración ligera: borde lateral al panel de resultados
         try:
