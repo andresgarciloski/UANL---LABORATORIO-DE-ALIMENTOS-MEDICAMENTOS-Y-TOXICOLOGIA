@@ -27,6 +27,8 @@ from PIL import Image, ImageTk  # sólo si en el futuro se necesita mostrar imá
 from ui.base_interface import bind_mousewheel, _BG, _PRIMARY, _PRIMARY_DARK, _TEXT, _SECONDARY, _EMPHASIS
 import tempfile
 from core.exporter import NutrimentalExporter  # solo el exportador, no la lógica de sellos
+# NUEVO: utilidades para validación
+import re, time
 
 class NutrimentalModule:
     def __init__(self, parent_window):
@@ -39,6 +41,11 @@ class NutrimentalModule:
         self._CARD_HEADER_FG = _PRIMARY
         self._CARD_HEADER_FONT = ("Segoe UI", 11, 'bold')
         self._CARD_BODY_FONT = ("Segoe UI", 10)
+        # NUEVO: estado de validación y throttling de avisos
+        self._vcmd_num = self._ivcmd_num = self._vcmd_int = self._ivcmd_int = None
+        self._last_warn_num = 0.0
+        self._last_warn_desc = 0.0
+        self._warn_cooldown = 0.9
 
     # --- Helper visual para crear "cards" modernas ---
     def _create_card(self, parent, title, full_height=False):
@@ -82,6 +89,8 @@ class NutrimentalModule:
         for w in self.parent.content_frame.winfo_children():
             w.destroy()
         self._init_styles()
+        # NUEVO: inicializar validadores de entradas
+        self._init_validation()
 
         root = tk.Frame(self.parent.content_frame, bg=_BG)
         root.pack(fill="both", expand=True)
@@ -161,12 +170,19 @@ class NutrimentalModule:
         lbl_cfg = {"foreground": _TEXT, "background": frame_bg, "font": ("Segoe UI",10,"bold")}
         # Fila 0
         tk.Label(card_body, text="N° de muestra:", **lbl_cfg).grid(row=0, column=0, sticky="w", padx=(2,8), pady=4)
-        self.parent.nombre_entry = ttk.Entry(card_body, font=("Segoe UI",10), style="Input.TEntry")
+        # NUEVO: solo enteros
+        self.parent.nombre_entry = ttk.Entry(
+            card_body, font=("Segoe UI",10), style="Input.TEntry",
+            validate="key", validatecommand=self._vcmd_int, invalidcommand=self._ivcmd_int
+        )
         self.parent.nombre_entry.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
         # Fila 1
         tk.Label(card_body, text="Descripción:", **lbl_cfg).grid(row=1, column=0, sticky="nw", padx=(2,8), pady=4)
         self.parent.descripcion_entry = tk.Text(card_body, font=("Segoe UI",10), height=3, bd=1, relief="solid")
         self.parent.descripcion_entry.grid(row=1, column=1, padx=4, pady=4, sticky="ew")
+        # NUEVO: sanitizar a solo letras y números (con espacios/acentos)
+        self.parent.descripcion_entry.bind("<KeyRelease>", lambda e: self._sanitize_description())
+        self.parent.descripcion_entry.bind("<<Paste>>", lambda e: self.parent.after(0, self._sanitize_description))
         # Fila 2
         tk.Label(card_body, text="Fecha:", **lbl_cfg).grid(row=2, column=0, sticky="w", padx=(2,8), pady=4)
         self.parent.fecha_entry = ttk.Entry(card_body, font=("Segoe UI",10), state="readonly")
@@ -218,7 +234,11 @@ class NutrimentalModule:
             label_text = self._get_label_text(key, es_liquida)
             lbl = tk.Label(nutri_frame, text=label_text, bg=self._CARD_BG, fg=_TEXT, font=("Segoe UI",10,"bold"))
             lbl.grid(row=row, column=col, sticky="w", padx=(4,4), pady=5)
-            entry = ttk.Entry(nutri_frame, font=("Segoe UI",10), style="Input.TEntry")
+            # NUEVO: solo números (decimales con punto)
+            entry = ttk.Entry(
+                nutri_frame, font=("Segoe UI",10), style="Input.TEntry",
+                validate="key", validatecommand=self._vcmd_num, invalidcommand=self._ivcmd_num
+            )
             entry.grid(row=row, column=col+1, sticky="ew", padx=(0,8), pady=5)
             self.parent.nutri_vars[key] = entry
             self.parent.nutri_label_widgets[key] = lbl
@@ -774,3 +794,73 @@ class NutrimentalModule:
                 self._buttons_frame.grid(row=last_row+1, column=0, columnspan=(3 if mode=='3' else (2 if mode=='2' else 1)), sticky='ew', pady=(10,10))
         except Exception:
             pass
+
+    # ================= VALIDACIÓN (solo lo pedido) =================
+    def _init_validation(self):
+        """Registra validadores para numéricos, enteros y sanitiza Descripción."""
+        try:
+            reg = self.parent.register
+            self._vcmd_num = (reg(self._validate_number), "%P", "%W")
+            self._ivcmd_num = (reg(self._on_invalid_number), "%W")
+            self._vcmd_int = (reg(self._validate_integer), "%P", "%W")
+            self._ivcmd_int = (reg(self._on_invalid_integer), "%W")
+        except Exception:
+            self._vcmd_num = self._ivcmd_num = self._vcmd_int = self._ivcmd_int = None
+
+    def _validate_number(self, proposed: str, widget_path: str) -> bool:
+        """Permite solo números con punto decimal opcional. Vacío permitido para poder borrar."""
+        if proposed == "":
+            return True
+        return re.fullmatch(r"\d*\.?\d*", proposed) is not None and proposed.count(".") <= 1
+
+    def _on_invalid_number(self, widget_path: str):
+        """Aviso cuando se intenta ingresar letras en campos numéricos."""
+        now = time.monotonic()
+        if now - self._last_warn_num >= self._warn_cooldown:
+            self._last_warn_num = now
+            try:
+                self.parent.bell()
+                messagebox.showwarning("Entrada inválida", "Solo se permiten números (usa punto para decimales).")
+            except Exception:
+                pass
+        return False
+
+    def _validate_integer(self, proposed: str, widget_path: str) -> bool:
+        """Solo enteros positivos. Vacío permitido para poder borrar."""
+        if proposed == "":
+            return True
+        return re.fullmatch(r"\d+", proposed) is not None
+
+    def _on_invalid_integer(self, widget_path: str):
+        """Aviso para campos enteros (N° de muestra)."""
+        now = time.monotonic()
+        if now - self._last_warn_num >= self._warn_cooldown:
+            self._last_warn_num = now
+            try:
+                self.parent.bell()
+                messagebox.showwarning("Entrada inválida", "Este campo solo acepta números enteros.")
+            except Exception:
+                pass
+        return False
+
+    def _sanitize_description(self):
+        """Descripción: solo letras, números y espacios (incluye acentos y ñ)."""
+        try:
+            txt = self.parent.descripcion_entry.get("1.0", "end-1c")
+        except Exception:
+            return
+        cleaned = re.sub(r"[^A-Za-zÁÉÍÓÚáéíóúÑñ0-9 ]+", "", txt)
+        if cleaned != txt:
+            try:
+                self.parent.descripcion_entry.delete("1.0", "end")
+                self.parent.descripcion_entry.insert("1.0", cleaned)
+            except Exception:
+                pass
+            now = time.monotonic()
+            if now - self._last_warn_desc >= self._warn_cooldown:
+                self._last_warn_desc = now
+                try:
+                    self.parent.bell()
+                    messagebox.showwarning("Texto inválido", "Descripción solo permite letras y números (y espacios).")
+                except Exception:
+                    pass
