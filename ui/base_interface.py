@@ -3,8 +3,6 @@ from tkinter import messagebox  # AGREGAR ESTE IMPORT
 import os
 from PIL import Image, ImageTk, ImageDraw
 
-# Nueva paleta (solicitada)
-# Principal: rojo suave, Hover: rojo profundo, Fondo claro, Texto principal, Secundario, Énfasis sutil
 _BG = "#F5F5F5"            # fondo claro neutro
 _PRIMARY = "#C62828"       # rojo principal
 _PRIMARY_DARK = "#8B0000"  # variante oscura para hover/activo
