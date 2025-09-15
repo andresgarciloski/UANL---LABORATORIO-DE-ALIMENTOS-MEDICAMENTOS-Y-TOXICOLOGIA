@@ -4,8 +4,6 @@ import datetime
 from tkinter import messagebox, filedialog
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as XLImage
-from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
-from openpyxl.drawing.geometry import PositiveSize2D
 from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 from core.auth import agregar_historial
@@ -30,6 +28,30 @@ def _sanitize_filename(name: str) -> str:
     cleaned = "".join(c for c in name if c in keep)
     cleaned = "_".join(part for part in cleaned.split() if part)
     return cleaned.strip("_") or "archivo"
+
+def _add_stamp(ws, img_path: str, cell: str, w_px: int = 48, h_px: int = 48):
+    """Inserta una imagen anclada a una celda (compatible con todas las versiones)."""
+    try:
+        img = XLImage(img_path)
+        img.width = w_px
+        img.height = h_px
+        img.anchor = cell   # anclaje simple sin OneCellAnchor
+        ws.add_image(img)
+    except Exception as e:
+        print(f"[exporter] fallo al insertar imagen {img_path}: {e}")
+
+def _excel_width_from_px(px: int) -> float:
+    """Convierte píxeles a unidades de ancho de columna de Excel (~ px = width*7 + 5)."""
+    return max(0.0, (float(px) - 5.0) / 7.0)
+
+def _set_equal_column_widths(ws, columns, target_px: int):
+    """Fija el mismo ancho en píxeles para un conjunto de columnas."""
+    try:
+        width_units = _excel_width_from_px(target_px)
+        for c in columns:
+            ws.column_dimensions[c].width = width_units
+    except Exception:
+        pass
 
 class NutrimentalExporter:
     def __init__(self, parent_window):
@@ -140,40 +162,27 @@ class NutrimentalExporter:
             "exceso_grasas_trans":       {"imagen": "trans.jpg",      "celda": "Q5", "size": STAMP_SIZE},
         }
 
-        for key, aplica in sellos.items():
-            if not aplica:
-                continue
-            cfg = sellos_config.get(key)
-            if not cfg:
-                continue
+        # Definimos un padding lateral fijo y hacemos todas las columnas M–Q iguales
+        PADDING_LR = 20  # píxeles a cada lado del sello
+        col_target_px = STAMP_SIZE[0] + (PADDING_LR * 2)
+        _set_equal_column_widths(ws, ["M", "N", "O", "P", "Q"], col_target_px)
 
-            ruta_imagen = os.path.join(ruta_base, cfg["imagen"])
-            if not os.path.exists(ruta_imagen):
-                print(f"[exporter] imagen no encontrada: {ruta_imagen}")
-                continue
-
+        # Como ahora todas las columnas tienen el mismo ancho, la separación será uniforme
+        # Inserción de imágenes
+        ruta_base = os.path.join(os.path.dirname(__file__), "..", "img", "Sellos")
+        for key, cfg in sellos_config.items():
             try:
-                img = XLImage(ruta_imagen)
-                w, h = cfg.get("size", STAMP_SIZE)
-                img.width = w
-                img.height = h
-
-                # Anclar con offset horizontal para centrar el sello en su columna
-                col_letter, row_number = coordinate_from_string(cfg["celda"])
-                col_idx = column_index_from_string(col_letter) - 1  # 0-based para AnchorMarker
-                row_idx = row_number - 1
-
-                xoff = pixels_to_EMU(x_offsets.get(col_letter, 0))
-                yoff = pixels_to_EMU(0)  # mantener arriba de la celda
-
-                img.anchor = OneCellAnchor(
-                    _from=AnchorMarker(col=col_idx, colOff=xoff, row=row_idx, rowOff=yoff),
-                    ext=PositiveSize2D(pixels_to_EMU(w), pixels_to_EMU(h))
-                )
-
-                ws.add_image(img)  # no altera filas/columnas
+                if not sellos.get(key):
+                    continue
+                ruta = os.path.join(ruta_base, cfg["imagen"])
+                if not os.path.exists(ruta):
+                    print(f"[exporter] imagen no encontrada: {ruta}")
+                    continue
+                cell = cfg["celda"]
+                w, h = cfg.get("size", (48, 48))
+                _add_stamp(ws, ruta, cell, w_px=w, h_px=h)
             except Exception as e:
-                print(f"[exporter] fallo al insertar imagen {ruta_imagen}: {e}")
+                print(f"[exporter] fallo al insertar imagen {cfg.get('imagen','?')}: {e}")
 
     def llenar_plantilla_excel(self, wb, resultados, entrada, datos_basicos):
         ws = wb.active
