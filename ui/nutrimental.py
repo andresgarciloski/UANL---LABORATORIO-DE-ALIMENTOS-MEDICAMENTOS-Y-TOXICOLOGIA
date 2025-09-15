@@ -127,6 +127,19 @@ class NutrimentalModule:
         self._create_basic_fields(inner_inputs)
         self._create_nutrimental_fields(inner_inputs)
 
+        # NUEVO: Botón "Calcular" centrado debajo de Datos nutricionales (panel izquierdo)
+        left_actions = tk.Frame(inner_inputs, bg=_BG)
+        left_actions.pack(fill='x', padx=10, pady=(0, 10))
+        tk.Frame(left_actions, bg=_BG).pack()  # separador fino
+        calc_btn_left = ttk.Button(
+            left_actions,
+            text="Calcular",
+            command=self.calcular_tabla_nutrimental,
+            style="Primary.TButton",
+            width=18
+        )
+        calc_btn_left.pack(anchor='center', pady=4)
+
         # Panel de resultados
         results_panel = tk.Frame(paned, bg=_BG)
         paned.add(results_panel, weight=4)
@@ -270,22 +283,23 @@ class NutrimentalModule:
         """Crea botones estilizados (solo visual)."""
         btn_bar = tk.Frame(parent, bg=_BG)
         btn_bar.pack()
-        calc_btn = ttk.Button(
-            btn_bar,
-            text="Calcular",
-            command=self.calcular_tabla_nutrimental,
-            style="Primary.TButton",
-            width=18
-        )
-        calc_btn.pack(side="left", padx=6, pady=4)
+        # NUEVO: Guardar (verde) y Limpiar (azul)
         guardar_bd_btn = ttk.Button(
             btn_bar,
-            text="Guardar en BD",
+            text="Guardar",
             command=self.exporter.guardar_solo_bd,
-            style="Secondary.TButton",
+            style="Success.TButton",
             width=18
         )
         guardar_bd_btn.pack(side="left", padx=6, pady=4)
+        limpiar_btn = ttk.Button(
+            btn_bar,
+            text="Limpiar",
+            command=self.limpiar_campos,
+            style="Info.TButton",
+            width=18
+        )
+        limpiar_btn.pack(side="left", padx=6, pady=4)
 
     # --------- Estilos (visual only) ---------
     def _init_styles(self):
@@ -306,6 +320,11 @@ class NutrimentalModule:
             style.configure('SubCard.TLabelframe.Label', background=sub_bg, foreground=_PRIMARY, font=("Segoe UI",9,"bold"))
             style.configure('Primary.TButton', background=_PRIMARY, foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
             style.map('Primary.TButton', background=[('active', _PRIMARY_DARK)])
+            # NUEVO: estilos de botones Guardar (verde) y Limpiar (azul)
+            style.configure('Success.TButton', background='#81C784', foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
+            style.map('Success.TButton', background=[('active', '#66BB6A')])
+            style.configure('Info.TButton', background='#64B5F6', foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
+            style.map('Info.TButton', background=[('active', '#42A5F5')])
             style.configure('Secondary.TButton', background=_TEXT, foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
             style.map('Secondary.TButton', background=[('active', _PRIMARY_DARK)])
             style.configure('Input.TEntry', fieldbackground=_BG, background=_BG)
@@ -864,3 +883,34 @@ class NutrimentalModule:
                     messagebox.showwarning("Texto inválido", "Descripción solo permite letras y números (y espacios).")
                 except Exception:
                     pass
+        return cleaned
+
+    def limpiar_campos(self):
+        """Limpia todos los campos del formulario y el panel de resultados."""
+        try:
+            # Básicos
+            if hasattr(self.parent, 'nombre_entry'):
+                self.parent.nombre_entry.delete(0, 'end')
+            if hasattr(self.parent, 'descripcion_entry'):
+                self.parent.descripcion_entry.delete('1.0', 'end')
+
+            # Datos nutricionales
+            for entry in getattr(self.parent, 'nutri_vars', {}).values():
+                try:
+                    entry.delete(0, 'end')
+                except Exception:
+                    pass
+
+            # Resultados
+            if hasattr(self.parent, 'resultados_text'):
+                self.parent.resultados_text.config(state='normal')
+                self.parent.resultados_text.delete('1.0', 'end')
+                self.parent.resultados_text.config(state='disabled')
+
+            # Estado de último cálculo (opcional)
+            try:
+                self.parent.ultimo_calculo = None
+            except Exception:
+                pass
+        except Exception:
+            pass
