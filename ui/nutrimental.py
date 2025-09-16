@@ -62,6 +62,9 @@ class NutrimentalModule:
     # ----------------- NUEVO: método público para botón -----------------
     def calcular_tabla_nutrimental(self):
         """Lee entradas, calcula resultados, guarda en self.parent.ultimo_calculo y muestra."""
+        # Validar longitud mínima de Descripción
+        if not self._check_description_min_length():
+            return
         try:
             entradas = {}
             for key, entry in getattr(self.parent, 'nutri_vars', {}).items():
@@ -72,7 +75,7 @@ class NutrimentalModule:
             # básicos
             nombre = getattr(self.parent, 'nombre_entry', None).get().strip() if hasattr(self.parent, 'nombre_entry') else ''
             descripcion = getattr(self.parent, 'descripcion_entry', None).get('1.0','end-1c').strip() if hasattr(self.parent, 'descripcion_entry') else ''
-            datos_basicos = { 'nombre': nombre, 'descripcion': descripcion }
+            datos_basicos = {'nombre': nombre, 'descripcion': descripcion}
             resultados = self._calcular_nutrimental(entradas)
             self.parent.ultimo_calculo = {
                 'datos_entrada': entradas,
@@ -138,6 +141,12 @@ class NutrimentalModule:
             width=18
         )
         calc_btn_left.pack(anchor='center', pady=4)
+        # Deshabilitado hasta que los campos estén completos
+        self._btn_calcular = calc_btn_left
+        try:
+            self._btn_calcular.state(['disabled'])
+        except Exception:
+            pass
 
         # Panel de resultados (50% del ancho, todo el alto)
         results_panel = tk.Frame(content, bg=_BG)
@@ -178,13 +187,20 @@ class NutrimentalModule:
             validate="key", validatecommand=self._vcmd_int, invalidcommand=self._ivcmd_int
         )
         self.parent.nombre_entry.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
+        # Actualizar estado del botón al escribir
+        self.parent.nombre_entry.bind("<KeyRelease>", lambda e: self._update_calc_button())
         # Fila 1
         tk.Label(card_body, text="Descripción:", **lbl_cfg).grid(row=1, column=0, sticky="nw", padx=(2,8), pady=4)
         self.parent.descripcion_entry = tk.Text(card_body, font=("Segoe UI",10), height=3, bd=1, relief="solid")
         self.parent.descripcion_entry.grid(row=1, column=1, padx=4, pady=4, sticky="ew")
-        # NUEVO: sanitizar a solo letras y números (con espacios/acentos)
+        # NUEVO: sanitizar y validar
         self.parent.descripcion_entry.bind("<KeyRelease>", lambda e: self._sanitize_description())
         self.parent.descripcion_entry.bind("<<Paste>>", lambda e: self.parent.after(0, self._sanitize_description))
+        self.parent.descripcion_entry.bind("<FocusOut>", lambda e: self._check_description_min_length())
+        # También actualizar estado del botón cuando cambie
+        self.parent.descripcion_entry.bind("<KeyRelease>", lambda e: self._update_calc_button(), add="+")
+        self.parent.descripcion_entry.bind("<<Paste>>", lambda e: self.parent.after(0, self._update_calc_button), add="+")
+        self.parent.descripcion_entry.bind("<FocusOut>", lambda e: self._update_calc_button(), add="+")
         # Fila 2
         tk.Label(card_body, text="Fecha:", **lbl_cfg).grid(row=2, column=0, sticky="w", padx=(2,8), pady=4)
         self.parent.fecha_entry = ttk.Entry(card_body, font=("Segoe UI",10), state="readonly")
@@ -242,6 +258,9 @@ class NutrimentalModule:
                 validate="key", validatecommand=self._vcmd_num, invalidcommand=self._ivcmd_num
             )
             entry.grid(row=row, column=col+1, sticky="ew", padx=(0,8), pady=5)
+            # Actualizar estado del botón al escribir/pegar
+            entry.bind("<KeyRelease>", lambda e: self._update_calc_button(), add="+")
+            entry.bind("<<Paste>>", lambda e: self.parent.after(0, self._update_calc_button), add="+")
             self.parent.nutri_vars[key] = entry
             self.parent.nutri_label_widgets[key] = lbl
 
@@ -308,7 +327,10 @@ class NutrimentalModule:
             style.configure('SubCard.TLabelframe', background=sub_bg, foreground=_PRIMARY, borderwidth=1, relief='solid')
             style.configure('SubCard.TLabelframe.Label', background=sub_bg, foreground=_PRIMARY, font=("Segoe UI",9,"bold"))
             style.configure('Primary.TButton', background=_PRIMARY, foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
-            style.map('Primary.TButton', background=[('active', _PRIMARY_DARK)])
+            # Rojo por defecto; gris cuando está deshabilitado
+            style.map('Primary.TButton',
+                      background=[('disabled', '#BDBDBD'), ('active', _PRIMARY_DARK)],
+                      foreground=[('disabled', '#EEEEEE')])
             # NUEVO: estilos de botones Guardar (verde) y Limpiar (azul)
             style.configure('Success.TButton', background='#81C784', foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
             style.map('Success.TButton', background=[('active', '#66BB6A')])
@@ -874,6 +896,27 @@ class NutrimentalModule:
                     pass
         return cleaned
 
+    def _check_description_min_length(self) -> bool:
+        """Valida que Descripción tenga mínimo 5 caracteres (tras sanitizar)."""
+        try:
+            text = (self._sanitize_description() or "").strip()
+        except Exception:
+            return True
+        ok = len(text) >= 5
+        try:
+            # feedback visual suave
+            self.parent.descripcion_entry.config(bg=("white" if ok else "#FFF5F5"))
+        except Exception:
+            pass
+        if not ok:
+            try:
+                self.parent.bell()
+                messagebox.showwarning("Descripción muy corta", "La descripción debe tener al menos 5 caracteres.")
+                self.parent.descripcion_entry.focus_set()
+            except Exception:
+                pass
+        return ok
+
     def limpiar_campos(self):
         """Limpia todos los campos del formulario y el panel de resultados."""
         try:
@@ -901,5 +944,58 @@ class NutrimentalModule:
                 self.parent.ultimo_calculo = None
             except Exception:
                 pass
+        except Exception:
+            pass
+
+        # Deshabilitar botón "Calcular" (volver a gris) tras limpiar
+        try:
+            if hasattr(self, "_btn_calcular") and self._btn_calcular:
+                self._btn_calcular.state(['disabled'])
+        except Exception:
+            pass
+        # Revalidar por si hay lógica adicional basada en entradas
+        try:
+            self._update_calc_button()
+        except Exception:
+            pass
+
+    # ---------- Habilitar/Deshabilitar "Calcular" ----------
+    def _inputs_complete_and_valid(self) -> bool:
+        """Nombre (entero), Descripción >=5, y todos los nutrimentales numéricos y no vacíos."""
+        # Nombre
+        try:
+            num = self.parent.nombre_entry.get().strip()
+            if not num or re.fullmatch(r"\d+", num) is None:
+                return False
+        except Exception:
+            return False
+        # Descripción
+        try:
+            desc = self.parent.descripcion_entry.get("1.0", "end-1c").strip()
+            if len(desc) < 5:
+                return False
+        except Exception:
+            return False
+        # Nutrimentales
+        try:
+            for entry in getattr(self.parent, 'nutri_vars', {}).values():
+                s = entry.get().strip()
+                if s == "":
+                    return False
+                float(s)  # valida numérico (con decimales)
+        except Exception:
+            return False
+        return True
+
+    def _update_calc_button(self):
+        """Actualiza el estado del botón Calcular según completitud/validez."""
+        try:
+            btn = getattr(self, "_btn_calcular", None)
+            if not btn:
+                return
+            if self._inputs_complete_and_valid():
+                btn.state(['!disabled'])
+            else:
+                btn.state(['disabled'])
         except Exception:
             pass
