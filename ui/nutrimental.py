@@ -29,6 +29,8 @@ import tempfile
 from core.exporter import NutrimentalExporter  # solo el exportador, no la lógica de sellos
 # NUEVO: utilidades para validación
 import re, time
+import threading
+from ui.loading import LoadingOverlay
 
 class NutrimentalModule:
     def __init__(self, parent_window):
@@ -295,7 +297,7 @@ class NutrimentalModule:
         guardar_bd_btn = ttk.Button(
             btn_bar,
             text="Guardar",
-            command=self.exporter.guardar_solo_bd,
+            command=self._guardar_con_loading,
             style="Success.TButton",
             width=18
         )
@@ -999,3 +1001,76 @@ class NutrimentalModule:
                 btn.state(['disabled'])
         except Exception:
             pass
+
+    def _guardar_con_loading(self):
+        """Muestra overlay de carga mientras se guarda en BD y lo cierra al mostrar el mensaje de resultado."""
+        # Crear overlay
+        try:
+            overlay = LoadingOverlay(self.parent)
+            overlay.show()
+        except Exception:
+            overlay = None
+
+        # Parche temporal de messagebox para cerrar overlay antes de mostrar cualquier diálogo
+        orig_info = messagebox.showinfo
+        orig_err = messagebox.showerror
+        orig_warn = messagebox.showwarning
+
+        def _wrap_dialog(orig_func):
+            def _wrapped(title, message, *a, **k):
+                def _do():
+                    # cerrar overlay justo antes de mostrar el diálogo
+                    try:
+                        if overlay:
+                            overlay.close()
+                    except Exception:
+                        pass
+                    try:
+                        orig_func(title, message, *a, **k)
+                    except Exception:
+                        pass
+                # asegurar que el diálogo se ejecute en el hilo principal de Tk
+                try:
+                    self.parent.after(0, _do)
+                except Exception:
+                    _do()
+                return ""  # resultado no usado
+            return _wrapped
+
+        messagebox.showinfo = _wrap_dialog(orig_info)
+        messagebox.showerror = _wrap_dialog(orig_err)
+        messagebox.showwarning = _wrap_dialog(orig_warn)
+
+        # Ejecutar guardado en hilo
+        def run():
+            try:
+                self.exporter.guardar_solo_bd()
+            except Exception as e:
+                def _notify_err():
+                    try:
+                        if overlay:
+                            overlay.close()
+                    except Exception:
+                        pass
+                    try:
+                        orig_err("Error", f"No se pudo completar el guardado.\n{e}")
+                    except Exception:
+                        pass
+                self.parent.after(0, _notify_err)
+            finally:
+                # Restaurar messagebox y asegurar cierre del overlay
+                def _restore():
+                    try:
+                        messagebox.showinfo = orig_info
+                        messagebox.showerror = orig_err
+                        messagebox.showwarning = orig_warn
+                    except Exception:
+                        pass
+                    try:
+                        if overlay:
+                            overlay.close()
+                    except Exception:
+                        pass
+                self.parent.after(0, _restore)
+
+        threading.Thread(target=run, daemon=True).start()
