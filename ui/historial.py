@@ -9,6 +9,8 @@ import os
 import tempfile
 from io import BytesIO
 from ui.base_interface import bind_mousewheel, _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
+from datetime import datetime, date  # NUEVO
+import re  # NUEVO
 
 # importar solo funciones del backend
 from core.function_report import (
@@ -106,8 +108,13 @@ class HistorialModule:
         self.fecha_var = getattr(self, "fecha_var", tk.StringVar())
         if DateEntry is not None:
             self.fecha_entry = DateEntry(controls, textvariable=self.fecha_var, width=16, date_pattern="yyyy-mm-dd")
+            # Normaliza al seleccionar en calendario y al salir del control
+            self.fecha_entry.bind("<<DateEntrySelected>>", lambda e: self.fecha_var.set(self._normalize_date_input(self.fecha_entry.get_date()) or ""))
+            self.fecha_entry.bind("<FocusOut>", lambda e: self._sync_date_string())
         else:
             self.fecha_entry = tk.Entry(controls, textvariable=self.fecha_var, width=16)
+            # También normaliza si el usuario escribe manualmente
+            self.fecha_entry.bind("<FocusOut>", lambda e: self._sync_date_string())
         self.fecha_entry.grid(row=0, column=1, sticky="w", padx=4, pady=6)
 
         # Nombre (ahora a la derecha, con más espacio para expandirse)
@@ -136,6 +143,50 @@ class HistorialModule:
         controls.grid_columnconfigure(3, weight=1)   # nombre expande
         controls.grid_columnconfigure(2, weight=0)
 
+    # ------------------ Fecha: helpers robustos ------------------ #
+    def _normalize_date_input(self, value):
+        """Devuelve fecha 'YYYY-MM-DD' o None si es inválida."""
+        if value in (None, "", "-", "--"):
+            return ""
+        # Si viene como date (tkcalendar.get_date)
+        if isinstance(value, date):
+            return value.strftime("%Y-%m-%d")
+        s = str(value).strip()
+        if not s:
+            return ""
+        # Reemplaza separadores comunes
+        s = re.sub(r"[\\\.]", "-", s)
+        s = s.replace("/", "-")
+        # Prueba varios formatos
+        fmts = ("%Y-%m-%d", "%d-%m-%Y", "%m-%d-%Y", "%Y/%m/%d", "%d/%m/%Y", "%m/%d/%Y")
+        for f in fmts:
+            try:
+                dt = datetime.strptime(s, f)
+                return dt.strftime("%Y-%m-%d")
+            except Exception:
+                continue
+        return None
+
+    def _sync_date_string(self):
+        """Valida/normaliza lo escrito en el control de fecha."""
+        raw = None
+        try:
+            if DateEntry is not None and isinstance(self.fecha_entry, DateEntry):
+                # Preferir el texto mostrado para respetar edición manual
+                raw = self.fecha_var.get() or self.fecha_entry.get()
+            else:
+                raw = self.fecha_var.get()
+        except Exception:
+            raw = ""
+        norm = self._normalize_date_input(raw)
+        if norm is None:
+            # Valor inválido: limpiar pero no romper
+            self.parent.bell()
+            messagebox.showwarning("Fecha inválida", "Usa un formato válido (YYYY-MM-DD).")
+            self.fecha_var.set("")
+        else:
+            self.fecha_var.set(norm or "")
+
     def _create_table(self):
         self.tabla_historial_frame = tk.Frame(self.historial_table_frame, bg=_BG)
         self.tabla_historial_frame.pack(fill="both", expand=True, padx=12, pady=(6,18))
@@ -156,6 +207,8 @@ class HistorialModule:
                 pass
 
         nombre = self.nombre_var.get() if hasattr(self, 'nombre_var') else ""
+        # Toma la fecha normalizada; si inválida, no filtra por fecha
+        self._sync_date_string()
         fecha = self.fecha_var.get() if hasattr(self, 'fecha_var') else ""
         usuario_filtro = getattr(self, 'usuario_filtro_var', tk.StringVar()).get() if hasattr(self, 'usuario_filtro_var') else ""
 
@@ -418,8 +471,8 @@ class HistorialModule:
         tk.Button(action_frame, text="Cerrar", bg=_PRIMARY_DARK, fg="white", activebackground=_PRIMARY, bd=0, cursor="hand2", command=preview_win.destroy).pack(side="right", padx=10)
 
         # Lógica de renderizado
-        images = []  # PhotoImage refs
-        pil_pages = []  # PIL Images para potencial re-escalado
+        pil_pages = []          # PIL Images de todas las páginas
+        photos_cache = {}       # cache por (idx, width) para evitar GC y reprocesos
         current_page = {"index": 0}
 
         def _render_page(idx):
@@ -428,24 +481,19 @@ class HistorialModule:
             idx = max(0, min(idx, len(pil_pages)-1))
             current_page["index"] = idx
             pil_img = pil_pages[idx]
-            # Ajuste a ancho máximo (menos márgenes) sin ampliar si es más pequeño
-            max_width = canvas.winfo_width() - 40
-            if max_width > 100:
+            max_width = max(200, canvas.winfo_width() - 40)
+            key = (idx, max_width)
+            if key not in photos_cache:
                 ratio = min(1.0, max_width / pil_img.width)
-                if ratio < 1.0:
-                    new_size = (int(pil_img.width * ratio), int(pil_img.height * ratio))
-                    disp_img = pil_img.resize(new_size, Image.LANCZOS)
-                else:
-                    disp_img = pil_img
-            else:
-                disp_img = pil_img
-            photo = ImageTk.PhotoImage(disp_img)
+                disp = pil_img if ratio >= 1.0 else pil_img.resize(
+                    (int(pil_img.width*ratio), int(pil_img.height*ratio)), Image.LANCZOS)
+                photos_cache[key] = ImageTk.PhotoImage(disp)
+            photo = photos_cache[key]
             img_label.configure(image=photo)
-            img_label.image = photo  # referencia
+            img_label.image = photo
             page_info_var.set(f"Página {idx+1} / {len(pil_pages)}")
-            # botones
-            btn_prev.configure(state="normal" if idx > 0 else "disabled")
-            btn_next.configure(state="normal" if idx < len(pil_pages)-1 else "disabled")
+            btn_prev.configure(state=("normal" if idx > 0 else "disabled"))
+            btn_next.configure(state=("normal" if idx < len(pil_pages)-1 else "disabled"))
             status_var.set("Listo")
 
         def _go_prev():
@@ -454,33 +502,43 @@ class HistorialModule:
             _render_page(current_page["index"] + 1)
         btn_prev.configure(command=_go_prev)
         btn_next.configure(command=_go_next)
+        preview_win.bind("<Left>", lambda e: _go_prev())
+        preview_win.bind("<Right>", lambda e: _go_next())
 
         def _load_pdf():
             try:
                 import fitz  # PyMuPDF
             except ImportError:
                 status_var.set("PyMuPDF no instalado")
-                info = tk.Label(inner, text="PyMuPDF (fitz) no está instalado.\nInstale con: pip install PyMuPDF\nLuego reintente la vista previa.", bg=_BG, fg=_TEXT, font=("Segoe UI", 10), justify="left")
+                info = tk.Label(inner, text="PyMuPDF (fitz) no está instalado.\nInstale: pip install PyMuPDF", bg=_BG, fg=_TEXT, font=("Segoe UI", 10), justify="left")
                 info.pack(pady=20)
                 return
             try:
-                doc = fitz.open(stream=archivo_bin, filetype="pdf")
-                if doc.page_count == 0:
+                doc = fitz.open(stream=bytes(archivo_bin), filetype="pdf")
+                pages = getattr(doc, "page_count", 0)
+                if pages == 0:
                     status_var.set("PDF vacío")
                     return
-                zoom = 1.25  # factor de escala moderado
+                zoom = 1.25
                 mat = fitz.Matrix(zoom, zoom)
-                for page in doc:
-                    pix = page.get_pixmap(matrix=mat, alpha=False)
-                    img_data = pix.tobytes("ppm")
-                    # Cargar con PIL desde bytes PPM
-                    pil_img = Image.open(BytesIO(img_data))
-                    pil_pages.append(pil_img)
+                for i in range(pages):
+                    pg = doc.load_page(i)
+                    pix = pg.get_pixmap(matrix=mat, alpha=False)
+                    pil = Image.open(BytesIO(pix.tobytes("ppm")))
+                    pil.load()
+                    pil_pages.append(pil)
+                doc.close()
                 status_var.set("Renderizando...")
                 _render_page(0)
             except Exception as e:
                 status_var.set("Error")
                 messagebox.showerror("Error", f"No se pudo renderizar el PDF: {e}")
 
-        # Cargar PDF después de que la ventana se muestre (para dimensiones correctas)
+        # Redibujar a nuevo tamaño de canvas
+        def _on_resize(_e=None):
+            photos_cache.clear()
+            _render_page(current_page["index"])
+        canvas.bind("<Configure>", lambda e: (_on_resize()))
+
+        # Cargar PDF después de que la ventana se muestre (dimensiones correctas)
         preview_win.after(100, _load_pdf)
