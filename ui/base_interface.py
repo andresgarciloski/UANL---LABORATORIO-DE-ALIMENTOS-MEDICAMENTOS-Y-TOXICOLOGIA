@@ -4,13 +4,17 @@ import os
 from PIL import Image, ImageTk, ImageDraw
 
 _BG = "#F5F5F5"            # fondo claro neutro
-_PRIMARY = "#C62828"       # rojo principal
-_PRIMARY_DARK = "#8B0000"  # variante oscura para hover/activo
+_PRIMARY = "#C62828"       # rojo principal (Material Red 800)
+_PRIMARY_DARK = "#B71C1C"  # variante oscura coherente (Material Red 700)
 _TEXT = "#212121"          # gris oscuro, alta legibilidad
-_TEXT_SECONDARY = "#9E9E9E" # gris medio para menor jerarquía
+_TEXT_SECONDARY = "#616161" # gris medio (mejor contraste que #9E9E9E)
 _SECONDARY = "#607D8B"     # azul grisáceo suave (equilibrio)
-_EMPHASIS = "#FFCDD2"      # acentos suaves
-_ALERT = "#E57373"         # rojo intermedio para alertas
+_EMPHASIS = "#FFCDD2"      # acentos suaves (tinte del primario)
+_ALERT = "#D32F2F"         # rojo de alerta (Material Red 700/600)
+
+# Opcionales de paleta (por si otros módulos los usan)
+_SURFACE = "#FFFFFF"       # tarjetas/fondos elevados
+_BORDER = "#E0E0E0"        # líneas y divisores sutiles
 
 
 def bind_mousewheel(widget, canvas):
@@ -113,7 +117,7 @@ class BaseInterface(tk.Tk):
 
         # Imagen circular
         try:
-            img_path = os.path.join(os.path.dirname(__file__), "..", "img", "user.png")
+            img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
             img_path = os.path.abspath(img_path)
             user_img = Image.open(img_path).resize((40, 40), Image.LANCZOS)
             mask = Image.new('L', (40, 40), 0)

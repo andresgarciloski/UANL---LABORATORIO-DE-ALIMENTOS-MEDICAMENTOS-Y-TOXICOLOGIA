@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageDraw
 import os
-from ui.base_interface import _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
+from ui.base_interface import _BG, _PRIMARY, _PRIMARY_DARK, _TEXT, _TEXT_SECONDARY, _SECONDARY, _EMPHASIS
 
 # Cargar dinámicamente para evitar problemas de importación circular
 def get_user_data_module():
@@ -41,10 +41,10 @@ class UserProfileSection:
             relief="flat",
             bd=0,
             highlightthickness=2,
-            highlightbackground="#E6E8EC",
+            highlightbackground=_EMPHASIS,
             highlightcolor=_PRIMARY,
-            bg="#F7F8FA",
-            insertbackground="#111111",
+            bg=_BG,
+            insertbackground=_TEXT,
         )
 
     def _get_img_path(self, name: str) -> str:
@@ -70,7 +70,7 @@ class UserProfileSection:
 
                 canvas.delete("all")
                 canvas.create_image(0, 0, anchor="nw", image=self._header_photo)
-                canvas.create_rectangle(0, 0, width, height, fill="#000000", outline="", stipple="gray25")
+                canvas.create_rectangle(0, 0, width, height, fill=_PRIMARY, outline="", stipple="gray25")
             except Exception:
                 canvas.delete("all")
                 canvas.configure(bg=_PRIMARY)
@@ -121,7 +121,7 @@ class UserProfileSection:
         content_wrap.pack(fill="both", expand=True, padx=36, pady=22)
 
         # Separador sutil
-        tk.Frame(content_wrap, height=1, bg="#E6E8EC").pack(fill="x", pady=(0, 18))
+        tk.Frame(content_wrap, height=1, bg=_EMPHASIS).pack(fill="x", pady=(0, 18))
 
         # Formulario plano (sin 'card')
         form = tk.Frame(content_wrap, bg=_BG)
@@ -151,7 +151,7 @@ class UserProfileSection:
             created_at = created_at.strftime('%d/%m/%Y') if hasattr(created_at, 'strftime') else str(created_at)
         tk.Label(form, text=created_at, **campo_styles).grid(row=3, column=1, sticky="w", pady=3)
 
-        tk.Frame(form, height=1, bg="#E6E8EC").grid(row=4, column=0, columnspan=2, sticky="ew", pady=14)
+        tk.Frame(form, height=1, bg=_EMPHASIS).grid(row=4, column=0, columnspan=2, sticky="ew", pady=14)
         tk.Label(form, text="Datos de contacto", **title_styles).grid(row=5, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
         tk.Label(form, text="Email", **campo_styles).grid(row=6, column=0, sticky="w", pady=3)
@@ -159,7 +159,7 @@ class UserProfileSection:
         self._apply_input_style(email_entry)
         email_entry.grid(row=6, column=1, sticky="ew", pady=3)
 
-        tk.Frame(form, height=1, bg="#E6E8EC").grid(row=7, column=0, columnspan=2, sticky="ew", pady=14)
+        tk.Frame(form, height=1, bg=_EMPHASIS).grid(row=7, column=0, columnspan=2, sticky="ew", pady=14)
         tk.Label(form, text="Cambiar contraseña (opcional)", **title_styles).grid(row=8, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
         tk.Label(form, text="Contraseña actual", **campo_styles).grid(row=9, column=0, sticky="w", pady=3)
@@ -283,7 +283,7 @@ def add_profile_to_menu(app):
     # Menú clásico de Tk
     if hasattr(app, "menu") and hasattr(app.menu, "add_command"):
         try:
-            app.menu.add_command(label="Mi Perfil", command=_open_profile)
+            app.menu.add_command(label="Perfil", command=_open_profile)
             return _open_profile
         except Exception:
             pass

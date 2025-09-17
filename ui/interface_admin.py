@@ -1,5 +1,6 @@
 import tkinter as tk
 from ui.base_interface import BaseInterface
+from ui.base_interface import _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
 from ui.menu_manager import MenuManager
 from ui.admin.users_management import UsersManagement
 from ui.admin.export_import import ExportImportSection
@@ -57,7 +58,8 @@ class MainInterfaceAdmin(BaseInterface):
             self.content_frame,
             text=f"Sección: {section_name}",
             font=("Segoe UI", 14),
-            bg="white"
+            bg=_BG,
+            fg=_TEXT
         )
         label.pack(pady=20)
 
@@ -86,7 +88,7 @@ def setup_user_profile_menu_admin():
             popup = tk.Toplevel(self)
             self._user_popup = popup
             popup.overrideredirect(True)
-            popup.configure(bg="white", bd=2, highlightthickness=2, highlightbackground="#0B5394")
+            popup.configure(bg=_BG, bd=2, highlightthickness=2, highlightbackground=_PRIMARY)
             
             # Posicionar cerca del botón de usuario
             try:
@@ -100,22 +102,22 @@ def setup_user_profile_menu_admin():
             tk.Label(
                 popup,
                 text=self.username if hasattr(self, 'username') else "Administrador",
-                bg="white",
-                fg="#0B5394",
+                bg=_BG,
+                fg=_PRIMARY,
                 font=("Segoe UI", 11, "bold")
             ).pack(pady=(10, 2), padx=10)
             
             # Línea separadora
-            tk.Frame(popup, bg="#0B5394", height=2).pack(fill="x", padx=10, pady=2)
+            tk.Frame(popup, bg=_PRIMARY, height=2).pack(fill="x", padx=10, pady=2)
             
             # Botón Mi Perfil (nuevo)
             tk.Button(
                 popup,
-                text="Mi Perfil",
+                text="Perfil",
                 font=("Segoe UI", 11),
-                bg="#0B5394",
+                bg=_PRIMARY,
                 fg="white",
-                activebackground="#073763",
+                activebackground=_PRIMARY_DARK,
                 activeforeground="white",
                 relief="flat",
                 cursor="hand2",
@@ -127,9 +129,9 @@ def setup_user_profile_menu_admin():
                 popup,
                 text="Cerrar sesión",
                 font=("Segoe UI", 11),
-                bg="#0B5394",
+                bg=_PRIMARY,
                 fg="white",
-                activebackground="#073763",
+                activebackground=_PRIMARY_DARK,
                 activeforeground="white",
                 relief="flat",
                 cursor="hand2",
