@@ -4,7 +4,7 @@ import os
 from PIL import Image, ImageTk, ImageDraw
 
 _BG = "#F5F5F5"            # fondo claro neutro
-_PRIMARY = "#C62828"       # rojo principal (Material Red 800)
+_PRIMARY = "#D04E4E"       # rojo principal (Material Red 800)
 _PRIMARY_DARK = "#B71C1C"  # variante oscura coherente (Material Red 700)
 _TEXT = "#212121"          # gris oscuro, alta legibilidad
 _TEXT_SECONDARY = "#616161" # gris medio (mejor contraste que #9E9E9E)
