@@ -3,7 +3,7 @@ import pyodbc
 # Configuración del servidor
 server = 'LATITUDE-3540\\SQLEXPRESS'      
 database = 'FCQ'  
-username = 'root'    
+username = 'prueba'    
 password = 'Fime2025'  
 driver = 'ODBC Driver 17 for SQL Server'  
 
