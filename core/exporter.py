@@ -184,9 +184,8 @@ class NutrimentalExporter:
             except Exception as e:
                 print(f"[exporter] fallo al insertar imagen {cfg.get('imagen','?')}: {e}")
 
-    def llenar_plantilla_excel(self, wb, resultados, entrada, datos_basicos):
+    def llenar_plantilla_excel(self, wb, resultados, entrada, datos_basicos, formato_100: bool = False):
         ws = wb.active
-
         # Determinar unidad automática: "mL" si es líquida, "g" si es sólida (fallback a "g")
         unidad = "g"
         tipo_var = getattr(self.parent, "tipo_muestra", None)
@@ -212,9 +211,6 @@ class NutrimentalExporter:
         else:
             escribir_celda_segura(ws, "F18", "")
 
-        # NO limpiar celdas de la columna C ni otras etiquetas de la plantilla
-        # (anteriormente se estaban borrando C17/C18 y eso eliminaba etiquetas)
-
         # Contenido energético por envase (solo número) y contenido neto con unidad (F19 y F12)
         energia_envase = resultados.get('por_envase', {}).get('energia_kcal','')
         try:
@@ -229,10 +225,11 @@ class NutrimentalExporter:
         # Nombre y descripción
         escribir_celda_segura(ws, "C8", f"{datos_basicos.get('nombre','')} - {datos_basicos.get('descripcion','')}")
 
-        # Mapeo valores por 100g y por porción (mantener resto igual)
+        # Mapeo valores por 100g (siempre) y por porción (solo si formato_100 == False)
         m = resultados.get("por_100g", {})
         p = resultados.get("por_porcion", {})
-        mappings = [
+
+        mappings_100 = [
             ("F21", m.get("energia_kcal", ""), "G21", "kcal"),
             ("F22", m.get("proteina", ""), "G22", "g"),
             ("F23", m.get("grasa_total", ""), "G23", "g"),
@@ -243,6 +240,8 @@ class NutrimentalExporter:
             ("F28", m.get("azucares_anadidos", ""), "G28", "g"),
             ("F29", m.get("fibra_dietetica", ""), "G29", "g"),
             ("F30", m.get("sodio", ""), "G30", "mg"),
+        ]
+        mappings_porcion = [
             ("H21", p.get("energia_kcal", ""), "I21", "kcal"),
             ("H22", p.get("proteina", ""), "I22", "g"),
             ("H23", p.get("grasa_total", ""), "I23", "g"),
@@ -254,28 +253,63 @@ class NutrimentalExporter:
             ("H29", p.get("fibra_dietetica", ""), "I29", "g"),
             ("H30", p.get("sodio", ""), "I30", "mg"),
         ]
+
         def _as_int_str(v):
             try:
                 return str(int(float(v)))
             except Exception:
                 return v if v is not None else ""
-        for cel_val_100, val100, cel_unit, unit in mappings:
+
+        # Escribir siempre los valores por 100g
+        for cel_val_100, val100, cel_unit, unit in mappings_100:
             val_fmt = _as_int_str(val100)
-            # escribir y forzar formato entero (sin decimales) en la celda de valor
             try:
                 escribir_celda_segura(ws, cel_val_100, val_fmt)
             except Exception:
                 ws[cel_val_100] = val_fmt
             try:
-                cell_obj = ws[cel_val_100]
-                cell_obj.number_format = '0'
+                ws[cel_val_100].number_format = '0'
             except Exception:
                 pass
-            # unidad en la celda contigua
             try:
                 ws[cel_unit] = unit
             except Exception:
                 pass
+
+        # Si NO estamos en formato_100, escribir la columna de porción; si SÍ, limpiar esas celdas
+        if not formato_100:
+            for cel_val_p, valp, cel_unit_p, unitp in mappings_porcion:
+                valp_fmt = _as_int_str(valp)
+                try:
+                    escribir_celda_segura(ws, cel_val_p, valp_fmt)
+                except Exception:
+                    ws[cel_val_p] = valp_fmt
+                try:
+                    ws[cel_val_p].number_format = '0'
+                except Exception:
+                    pass
+                try:
+                    ws[cel_unit_p] = unitp
+                except Exception:
+                    pass
+        else:
+            # limpiar celdas de porción para evitar duplicados/confusión
+            for cel_val_p, _, cel_unit_p, _ in mappings_porcion:
+                try:
+                    escribir_celda_segura(ws, cel_val_p, "")
+                except Exception:
+                    try:
+                        ws[cel_val_p] = ""
+                    except Exception:
+                        pass
+                try:
+                    ws[cel_val_p].number_format = '@'
+                except Exception:
+                    pass
+                try:
+                    ws[cel_unit_p] = ""
+                except Exception:
+                    pass
 
         # Agregar sellos de advertencia (usa cálculo en nutrimental.py)
         self.agregar_sellos_advertencia(ws, resultados)
@@ -328,12 +362,23 @@ class NutrimentalExporter:
                     pass
 
     def exportar_a_formato_predefinido(self):
-        """Exporta usando plantilla y sugiere un nombre estandarizado según datos ingresados."""
+        """Exporta usando plantilla y sugiere un nombre estandarizado según datos ingresadas."""
         if not hasattr(self.parent, "ultimo_calculo"):
             messagebox.showwarning("Advertencia", "Primero debe calcular la tabla nutrimental")
             return
         try:
-            plantilla = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates", "formato.xlsx"))
+            # elegir plantilla: si porción == 100 usar formato100.xlsx
+            entrada = self.parent.ultimo_calculo["datos_entrada"]
+            porcion_val = entrada.get("porcion", "")
+            formato_100_flag = False
+            try:
+                pv = float(porcion_val)
+                if pv == 100.0:
+                    formato_100_flag = True
+            except Exception:
+                formato_100_flag = False
+            plantilla_name = "formato100.xlsx" if formato_100_flag else "formato.xlsx"
+            plantilla = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates", plantilla_name))
             if not os.path.exists(plantilla):
                 raise FileNotFoundError(f"Plantilla no encontrada: {plantilla}")
             wb = load_workbook(plantilla)
@@ -357,7 +402,7 @@ class NutrimentalExporter:
             recommended = f"{nombre_limpio}_{tipo}_{porcion_str}{unidad}_{fecha}.pdf"
             recommended = _sanitize_filename(recommended)
 
-            wb = self.llenar_plantilla_excel(wb, resultados, entrada, datos_basicos)
+            wb = self.llenar_plantilla_excel(wb, resultados, entrada, datos_basicos, formato_100=formato_100_flag)
 
             # pasar el nombre recomendado a la función que muestra el diálogo
             _, ruta = self.generar_pdf_desde_excel(wb, recommended, True)
@@ -385,14 +430,25 @@ class NutrimentalExporter:
             if usuario_id is None:
                 messagebox.showwarning("Advertencia", "No se pudo guardar en la base de datos: Usuario no válido")
                 return
-            plantilla = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates", "formato.xlsx"))
+            # elegir plantilla: si porción == 100 usar formato100.xlsx
+            entrada = self.parent.ultimo_calculo["datos_entrada"]
+            porcion_val = entrada.get("porcion", "")
+            formato_100_flag = False
+            try:
+                pv = float(porcion_val)
+                if pv == 100.0:
+                    formato_100_flag = True
+            except Exception:
+                formato_100_flag = False
+            plantilla_name = "formato100.xlsx" if formato_100_flag else "formato.xlsx"
+            plantilla = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates", plantilla_name))
             if not os.path.exists(plantilla):
                 raise FileNotFoundError(f"Plantilla no encontrada: {plantilla}")
             wb = load_workbook(plantilla)
             resultados = self.parent.ultimo_calculo["resultados"]
             entrada = self.parent.ultimo_calculo["datos_entrada"]
             datos_basicos = self.parent.ultimo_calculo["datos_basicos"]
-            wb = self.llenar_plantilla_excel(wb, resultados, entrada, datos_basicos)
+            wb = self.llenar_plantilla_excel(wb, resultados, entrada, datos_basicos, formato_100=formato_100_flag)
             fecha = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             nombre_pdf = f"nutrimental_{nombre_actual}_{fecha}.pdf"
             archivo_binario, _ = self.generar_pdf_desde_excel(wb, nombre_pdf, False)
