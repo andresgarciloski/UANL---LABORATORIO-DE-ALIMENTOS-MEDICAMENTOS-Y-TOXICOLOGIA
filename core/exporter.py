@@ -8,6 +8,7 @@ from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 from core.auth import agregar_historial
 import pandas as pd
+from openpyxl.styles import Alignment  # <-- NUEVO
 
 def escribir_celda_segura(ws, coord, valor):
     """Escribe en una celda asegurando que, si está dentro de un rango merged, se escriba en la celda superior izquierda."""
@@ -21,6 +22,20 @@ def escribir_celda_segura(ws, coord, valor):
             ws.cell(row=rango.min_row, column=rango.min_col).value = valor
             return
     ws[coord] = valor
+
+def _alinear_derecha_seguro(ws, coord):
+    """Aplica alineación horizontal a la derecha respetando celdas combinadas."""
+    if not isinstance(coord, str):
+        try:
+            coord = coord.coordinate
+        except Exception:
+            coord = str(coord)
+    for rango in ws.merged_cells.ranges:
+        if coord in rango:
+            c = ws.cell(row=rango.min_row, column=rango.min_col)
+            c.alignment = Alignment(horizontal="right")
+            return
+    ws[coord].alignment = Alignment(horizontal="right")
 
 def _sanitize_filename(name: str) -> str:
     """Quitar caracteres inválidos y espacios duplicados para filenames."""
@@ -72,7 +87,7 @@ class NutrimentalExporter:
             es_liquida = False
         try:
             beb_var = getattr(self.parent, "bebida_sin_calorias", None)
-            if beb_var is not None and beb_var.get():
+            if beb_var is not None and bebida_sin_calorias.get():
                 es_bebida_sin_calorias = True
         except Exception:
             es_bebida_sin_calorias = False
@@ -208,6 +223,7 @@ class NutrimentalExporter:
             except Exception:
                 porciones_display = porciones_envase
             escribir_celda_segura(ws, "F18", f"{porciones_display}")
+            _alinear_derecha_seguro(ws, "F18")  # <-- NUEVO
         else:
             escribir_celda_segura(ws, "F18", "")
 
@@ -219,6 +235,7 @@ class NutrimentalExporter:
         except Exception:
             pass
         escribir_celda_segura(ws, "F19", energia_envase)
+        _alinear_derecha_seguro(ws, "F19")  # <-- NUEVO
         contenido_neto = entrada.get("contenido_neto", "")
         escribir_celda_segura(ws, "F12", f"{contenido_neto} {unidad}" if contenido_neto != "" else "")
 
@@ -271,6 +288,7 @@ class NutrimentalExporter:
                 ws[cel_val_100].number_format = '0'
             except Exception:
                 pass
+            _alinear_derecha_seguro(ws, cel_val_100)  # <-- NUEVO
             try:
                 ws[cel_unit] = unit
             except Exception:
@@ -288,6 +306,7 @@ class NutrimentalExporter:
                     ws[cel_val_p].number_format = '0'
                 except Exception:
                     pass
+                _alinear_derecha_seguro(ws, cel_val_p)  # <-- NUEVO
                 try:
                     ws[cel_unit_p] = unitp
                 except Exception:
