@@ -132,6 +132,9 @@ class NutrimentalModule:
         self._create_basic_fields(inner_inputs)
         self._create_nutrimental_fields(inner_inputs)
 
+        # NUEVO: que las etiquetas de los campos se adapten y no se corten
+        self._enable_label_autowrap(inner_inputs)
+
         # Botón "Calcular" centrado debajo de Datos nutricionales (panel izquierdo)
         left_actions = tk.Frame(inner_inputs, bg=_BG)
         left_actions.pack(fill='x', padx=10, pady=(0, 10))
@@ -572,83 +575,8 @@ class NutrimentalModule:
 
     # ================= LAYOUT RESPONSIVO =================
     def _apply_responsive_layout(self, initial=False):
-        """Reorganiza columnas según ancho disponible.
-
-        Breakpoints:
-        - >= 1400px : 3 columnas (default)
-        - 950px–1399px : 2 columnas (Resultados debajo)
-        - < 950px : 1 columna (todas apiladas)
-        """
-        try:
-            cont = self._responsive_parent
-        except AttributeError:
-            return
-        if cont is None:
-            return
-        # Ancho efectivo dentro del canvas/scrollable
-        try:
-            width = cont.winfo_width()
-        except Exception:
-            return
-        # Durante creación inicial width puede ser muy pequeño (<10); posponer
-        if width < 50 and initial:
-            cont.after(50, lambda: self._apply_responsive_layout(initial=False))
-            return
-
-        if width >= 1400:
-            mode = '3'
-        elif width >= 950:
-            mode = '2'
-        else:
-            mode = '1'
-
-        if mode == self._layout_mode and not initial:
-            return  # sin cambios
-        self._layout_mode = mode
-
-        # Limpiar grid actual de columnas
-        for f in (self._col_left, self._col_center, self._col_right):
-            try:
-                f.grid_forget()
-            except Exception:
-                pass
-
-        # Reset configuraciones de columnas (limpiar indices previos)
-        for i in range(0, 4):
-            try:
-                cont.grid_columnconfigure(i, weight=0)
-            except Exception:
-                pass
-
-        padx = 5; pady = 5
-
-        if mode == '3':
-            cont.grid_columnconfigure(0, weight=1, uniform='col')
-            cont.grid_columnconfigure(1, weight=1, uniform='col')
-            cont.grid_columnconfigure(2, weight=2, uniform='col')  # dar más espacio a resultados
-            self._col_left.grid(row=0, column=0, sticky='nsew', padx=padx, pady=pady)
-            self._col_center.grid(row=0, column=1, sticky='nsew', padx=padx, pady=pady)
-            self._col_right.grid(row=0, column=2, sticky='nsew', padx=padx, pady=pady)
-        elif mode == '2':
-            cont.grid_columnconfigure(0, weight=1, uniform='col')
-            cont.grid_columnconfigure(1, weight=1, uniform='col')
-            self._col_left.grid(row=0, column=0, sticky='nsew', padx=padx, pady=pady)
-            self._col_center.grid(row=0, column=1, sticky='nsew', padx=padx, pady=pady)
-            self._col_right.grid(row=1, column=0, columnspan=2, sticky='nsew', padx=padx, pady=pady)
-        else:  # mode '1'
-            cont.grid_columnconfigure(0, weight=1, uniform='col')
-            self._col_left.grid(row=0, column=0, sticky='nsew', padx=padx, pady=pady)
-            self._col_center.grid(row=1, column=0, sticky='nsew', padx=padx, pady=pady)
-            self._col_right.grid(row=2, column=0, sticky='nsew', padx=padx, pady=pady)
-
-        # Ajustar padding inferior de frame de botones si existe
-        # (Se busca el frame de botones por convención grid row=1 initial; relocarlo al final)
-        try:
-            if hasattr(self, '_buttons_frame') and self._buttons_frame.winfo_exists():
-                last_row = 0 if mode == '3' else (1 if mode == '2' else 2)
-                self._buttons_frame.grid(row=last_row+1, column=0, columnspan=(3 if mode=='3' else (2 if mode=='2' else 1)), sticky='ew', pady=(10,10))
-        except Exception:
-            pass
+        """Layout responsivo (no usado actualmente)."""
+        pass
 
     # ================= VALIDACIÓN (solo lo pedido) =================
     def _init_validation(self):
@@ -897,3 +825,39 @@ class NutrimentalModule:
                 self.parent.after(0, _restore)
 
         threading.Thread(target=run, daemon=True).start()
+
+    # ================== NUEVO: autowrap en etiquetas de inputs ==================
+    def _enable_label_autowrap(self, root_container):
+        """Hace que las Label dentro de los formularios envuelvan el texto según su ancho.
+        Evita las del header (bg=_PRIMARY). Se aplica recursivamente."""
+        import tkinter as tk
+
+        def _apply(lbl: tk.Label):
+            # Configurar el wrap y actualizarlo cuando cambie el tamaño
+            def _upd(_e=None, _l=lbl):
+                try:
+                    w = _l.winfo_width()
+                    if w <= 1:
+                        w = _l.winfo_reqwidth()
+                    w = max(80, w - 8)  # margen visual
+                    _l.configure(wraplength=w, justify='left')
+                except Exception:
+                    pass
+            lbl.bind('<Configure>', _upd)
+            lbl.after(50, _upd)
+
+        def _walk(widget):
+            for child in widget.winfo_children():
+                # Saltar labels del header (tienen fondo _PRIMARY)
+                try:
+                    is_label = child.winfo_class() == 'Label'
+                    bg = child.cget('bg') if is_label else None
+                except Exception:
+                    is_label = False
+                    bg = None
+                if is_label and bg != _PRIMARY:
+                    _apply(child)
+                # Recurse
+                _walk(child)
+
+        _walk(root_container)
