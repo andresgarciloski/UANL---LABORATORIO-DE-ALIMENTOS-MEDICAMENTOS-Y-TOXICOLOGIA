@@ -87,7 +87,7 @@ class NutrimentalExporter:
             es_liquida = False
         try:
             beb_var = getattr(self.parent, "bebida_sin_calorias", None)
-            if beb_var is not None and bebida_sin_calorias.get():
+            if beb_var is not None and beb_var.get():
                 es_bebida_sin_calorias = True
         except Exception:
             es_bebida_sin_calorias = False
