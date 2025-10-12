@@ -510,7 +510,7 @@ class NutrimentalExporter:
                 usuario_id,
                 archivo_binario
             )
-            messagebox.showinfo("Guardado en Base de Datos", "✅ PDF nutrimental guardado correctamente en la base de datos.")
+            messagebox.showinfo("Guardado en Base de Datos", "PDF nutrimental guardado correctamente en la base de datos.")
         except FileNotFoundError:
             messagebox.showerror("Error", "No se encontró la plantilla formato.xlsx.")
         except ImportError as ie:
@@ -629,7 +629,7 @@ class NutrimentalExporter:
                 # debe hacerse únicamente mediante 'guardar_solo_bd' que genera PDF.
                 messagebox.showinfo(
                     "Exportación Exitosa",
-                    f"✅ Tabla nutrimental exportada en Excel (solo archivo local).\n\n📁 Archivo: {os.path.basename(filename)}\n📂 Ubicación: {filename}\n\nPara guardar en la base de datos en formato PDF use 'Guardar en base de datos'."
+                    f"Tabla nutrimental exportada en Excel (solo archivo local).\n\n📁 Archivo: {os.path.basename(filename)}\n📂 Ubicación: {filename}\n\nPara guardar en la base de datos en formato PDF use 'Guardar en base de datos'."
                 )
             else:
                 messagebox.showinfo("Cancelado", "Exportación cancelada por el usuario.")
