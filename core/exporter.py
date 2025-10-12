@@ -37,6 +37,20 @@ def _alinear_derecha_seguro(ws, coord):
             return
     ws[coord].alignment = Alignment(horizontal="right")
 
+def _alinear_izquierda_seguro(ws, coord):
+    """Aplica alineación horizontal a la izquierda respetando celdas combinadas."""
+    if not isinstance(coord, str):
+        try:
+            coord = coord.coordinate
+        except Exception:
+            coord = str(coord)
+    for rango in ws.merged_cells.ranges:
+        if coord in rango:
+            c = ws.cell(row=rango.min_row, column=rango.min_col)
+            c.alignment = Alignment(horizontal="left")
+            return
+    ws[coord].alignment = Alignment(horizontal="left")
+
 def _sanitize_filename(name: str) -> str:
     """Quitar caracteres inválidos y espacios duplicados para filenames."""
     keep = "-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -210,6 +224,11 @@ class NutrimentalExporter:
         except Exception:
             unidad = "g"
 
+        # Añadir unidad a G20 (alineado a la izquierda)
+        escribir_celda_segura(ws, "G20", unidad)
+        _alinear_izquierda_seguro(ws, "G20")
+        
+        # El resto del código existente...
         # Tamaño de porción con unidad en F17 (escribe sólo la celda destino)
         porcion_val = entrada.get("porcion", "")
         escribir_celda_segura(ws, "F17", f"{porcion_val} {unidad}" if porcion_val != "" else "")
