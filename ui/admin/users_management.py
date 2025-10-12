@@ -4,6 +4,10 @@ from PIL import Image, ImageTk
 import os
 from core.auth import obtener_usuarios, crear_usuario, actualizar_usuario, eliminar_usuario, eliminar_historial_por_usuario
 from ui.base_interface import bind_mousewheel
+from ui.base_interface import (
+    _BG, _PRIMARY, _PRIMARY_DARK, _TEXT, _TEXT_SECONDARY,
+    _SECONDARY, _EMPHASIS, _ALERT, _SURFACE, _BORDER
+)
 
 class UsersManagement:
     def __init__(self, parent):
@@ -19,10 +23,10 @@ class UsersManagement:
                 pass
 
         # Contenedor centrado con padding y margen lateral reducido para usar más ancho
-        outer = tk.Frame(self.parent.content_frame, bg="white")
+        outer = tk.Frame(self.parent.content_frame, bg=_BG)
         outer.pack(expand=True, fill="both", padx=24, pady=24)
 
-        center_container = tk.Frame(outer, bg="white")
+        center_container = tk.Frame(outer, bg=_BG)
         # usar relwidth alto para ocupar casi todo el ancho manteniendo espacios laterales
         center_container.place(relx=0.5, rely=0.02, relwidth=0.96, relheight=0.96, anchor="n")
 
@@ -31,15 +35,15 @@ class UsersManagement:
             center_container,
             text="Gestión de Usuarios",
             font=("Segoe UI", 18, "bold"),
-            fg="#0B5394",
-            bg="white"
+            fg=_PRIMARY,
+            bg=_BG
         )
         title.pack(pady=(6, 12))
 
         # Canvas y Scrollbar
-        main_canvas = tk.Canvas(center_container, bg="white", highlightthickness=0)
+        main_canvas = tk.Canvas(center_container, bg=_BG, highlightthickness=0)
         main_scrollbar = tk.Scrollbar(center_container, orient="vertical", command=main_canvas.yview)
-        self.users_table_frame = tk.Frame(main_canvas, bg="white")
+        self.users_table_frame = tk.Frame(main_canvas, bg=_BG)
 
         self.users_table_frame.bind(
             "<Configure>",
@@ -57,8 +61,8 @@ class UsersManagement:
 
         bind_mousewheel(self.users_table_frame, main_canvas)
 
-        # Botón agregar usuario con borde y estilo mejorado
-        actions_frame = tk.Frame(self.users_table_frame, bg="white")
+        # Botón agregar usuario
+        actions_frame = tk.Frame(self.users_table_frame, bg=_BG)
         actions_frame.pack(fill="x", padx=12, pady=(5, 10))
 
         # Subtítulo explicativo
@@ -66,8 +70,8 @@ class UsersManagement:
             actions_frame, 
             text="Administración de cuentas del sistema",
             font=("Segoe UI", 12, "bold"),
-            fg="#0B5394",
-            bg="white"
+            fg=_PRIMARY,
+            bg=_BG
         )
         subtitle.pack(side="left", anchor="w")
 
@@ -82,27 +86,27 @@ class UsersManagement:
         except Exception:
             plus_icon = None
 
-        # Botón con estilo unificado
+        # Botón con estilo
         add_btn = tk.Button(
             actions_frame,
             text="Agregar Usuario" + (" " if plus_icon else ""),
             image=plus_icon if plus_icon else None,
             compound="right" if plus_icon else "center",
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
             font=("Segoe UI", 10, "bold"),
             bd=0,
             padx=15,
             pady=6,
             cursor="hand2",
-            activebackground="#073763",
+            activebackground=_PRIMARY_DARK,
             activeforeground="white",
             command=self.add_user_popup
         )
         add_btn.pack(side="right", pady=5)
 
-        # Frame contenedor para la tabla con borde
-        table_container = tk.Frame(self.users_table_frame, bg="white", padx=12, pady=12)
+        # Frame contenedor para la tabla
+        table_container = tk.Frame(self.users_table_frame, bg=_BG, padx=12, pady=12)
         table_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
         # Crear tabla de usuarios
@@ -119,11 +123,10 @@ class UsersManagement:
             except:
                 pass
 
-        # Título y encabezado ya están fuera; construimos tabla limpia
         cols = ("id", "username", "email", "rol")
 
         # Frame para la tabla y scrollbar
-        table_frame = tk.Frame(container, bg="white")
+        table_frame = tk.Frame(container, bg=_BG)
         table_frame.pack(fill="both", expand=True, padx=8, pady=8)
 
         v_scroll = tk.Scrollbar(table_frame, orient="vertical")
@@ -134,10 +137,10 @@ class UsersManagement:
 
         style = ttk.Style()
         style.theme_use('default')
-        # Ajustes visuales: encabezado color y fuente
-        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#0B5394", foreground="white")
-        style.configure("Treeview", font=("Segoe UI", 10), rowheight=28)
-        # Eliminar borde resaltado para que se vea más "plano"
+        # Ajustes visuales
+        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background=_PRIMARY, foreground="white")
+        style.configure("Treeview", font=("Segoe UI", 10), rowheight=28,
+                        background=_SURFACE, fieldbackground=_SURFACE, foreground=_TEXT)
         style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])
 
         tree = ttk.Treeview(
@@ -177,7 +180,7 @@ class UsersManagement:
             tree.insert("", "end", iid=str(user_id), values=(user_id, username, email, rol))
 
         # Frame de acciones (editar/eliminar) debajo de la tabla
-        actions_bottom = tk.Frame(container, bg="white")
+        actions_bottom = tk.Frame(container, bg=_BG)
         actions_bottom.pack(fill="x", pady=(12, 2), padx=8)
 
         def get_selected_user():
@@ -193,7 +196,6 @@ class UsersManagement:
         def on_edit_selected():
             u = get_selected_user()
             if u:
-                # abrir popup para editar
                 self.edit_user_popup(u)
 
         def on_delete_selected():
@@ -206,12 +208,14 @@ class UsersManagement:
             actions_bottom,
             text="Editar seleccionado",
             font=("Segoe UI", 11),
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
             bd=0,
             padx=12,
             pady=8,
             cursor="hand2",
+            activebackground=_PRIMARY_DARK,
+            activeforeground="white",
             command=on_edit_selected
         )
         edit_btn.pack(side="left", padx=(0, 8))
@@ -220,12 +224,14 @@ class UsersManagement:
             actions_bottom,
             text="Eliminar seleccionado",
             font=("Segoe UI", 11),
-            bg="#d9534f",
+            bg=_ALERT,
             fg="white",
             bd=0,
             padx=12,
             pady=8,
             cursor="hand2",
+            activebackground=_PRIMARY_DARK,
+            activeforeground="white",
             command=on_delete_selected
         )
         delete_btn.pack(side="left")
@@ -249,16 +255,16 @@ class UsersManagement:
         popup = tk.Toplevel(self.parent)
         popup.title("Agregar nuevo usuario")
         
-        # Ventana más grande: 520x560
+        # Ventana: 520x560
         window_width = 520
         window_height = 560
         
         popup.geometry(f"{window_width}x{window_height}")
-        popup.configure(bg="white")
+        popup.configure(bg=_SURFACE)
         popup.resizable(False, False)
         popup.grab_set()
         
-        # Centrar popup con nuevas dimensiones
+        # Centrar popup
         popup.transient(self.parent)
         popup.update_idletasks()
         x = (popup.winfo_screenwidth() // 2) - (window_width // 2)
@@ -270,20 +276,20 @@ class UsersManagement:
             popup, 
             text="Nuevo Usuario",
             font=("Segoe UI", 18, "bold"),
-            fg="#0B5394",
-            bg="white"
-        ).pack(pady=(30, 20))  # Ajuste de espaciado
+            fg=_PRIMARY,
+            bg=_SURFACE
+        ).pack(pady=(30, 20))
 
-        # Formulario estilizado
-        form_frame = tk.Frame(popup, bg="white")
-        form_frame.pack(fill="both", expand=True, padx=40, pady=0)  # Más padding horizontal
+        # Formulario
+        form_frame = tk.Frame(popup, bg=_SURFACE)
+        form_frame.pack(fill="both", expand=True, padx=40, pady=0)
 
-        field_style = {"font": ("Segoe UI", 12), "bg": "white"}
-        entry_style = {"font": ("Segoe UI", 12), "width": 36}  # Campos más anchos
+        field_style = {"font": ("Segoe UI", 12), "bg": _SURFACE, "fg": _TEXT}
+        entry_style = {"font": ("Segoe UI", 12), "width": 36}
 
         tk.Label(form_frame, text="Usuario:", **field_style).pack(anchor="w", pady=(0, 6))
         username_entry = tk.Entry(form_frame, **entry_style)
-        username_entry.pack(fill="x", pady=(0, 18))  # Más espacio entre campos
+        username_entry.pack(fill="x", pady=(0, 18))
 
         tk.Label(form_frame, text="Email:", **field_style).pack(anchor="w", pady=(0, 6))
         email_entry = tk.Entry(form_frame, **entry_style)
@@ -295,17 +301,16 @@ class UsersManagement:
 
         tk.Label(form_frame, text="Rol:", **field_style).pack(anchor="w", pady=(0, 6))
         rol_var = tk.StringVar(value="usuario")
-        rol_frame = tk.Frame(form_frame, bg="white")
+        rol_frame = tk.Frame(form_frame, bg=_SURFACE)
         rol_frame.pack(fill="x", pady=(0, 18))
         
-        # Opciones de rol con mejor estilo y distribución más espaciada
-        rb_style = {"font": ("Segoe UI", 11), "bg": "white", "activebackground": "white"}
+        rb_style = {"font": ("Segoe UI", 11), "bg": _SURFACE, "activebackground": _SURFACE}
         tk.Radiobutton(rol_frame, text="Usuario", variable=rol_var, value="usuario", **rb_style).pack(side="left", padx=24)
         tk.Radiobutton(rol_frame, text="Administrador", variable=rol_var, value="admin", **rb_style).pack(side="left", padx=24)
 
-        # Botones con estilo
-        btn_frame = tk.Frame(popup, bg="white")
-        btn_frame.pack(fill="x", pady=28, padx=40)  # Más espacio para botones
+        # Botones
+        btn_frame = tk.Frame(popup, bg=_SURFACE)
+        btn_frame.pack(fill="x", pady=28, padx=40)
 
         def create_user():
             username = username_entry.get().strip()
@@ -325,19 +330,18 @@ class UsersManagement:
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo crear el usuario: {e}", parent=popup)
 
-        # Botón estilo consistente pero más grande
         btn_create = tk.Button(
             btn_frame,
             text="Crear Usuario",
-            font=("Segoe UI", 13, "bold"),  # Fuente más grande
-            bg="#0B5394",
+            font=("Segoe UI", 13, "bold"),
+            bg=_PRIMARY,
             fg="white",
-            activebackground="#073763",
+            activebackground=_PRIMARY_DARK,
             activeforeground="white",
             relief="flat",
             cursor="hand2",
             padx=24,
-            pady=12,  # Botón más alto
+            pady=12,
             command=create_user
         )
         btn_create.pack(fill="x")
@@ -348,12 +352,12 @@ class UsersManagement:
         popup = tk.Toplevel(self.parent)
         popup.title(f"Editar usuario: {username}")
         
-        # Ventana más grande: 500x520
+        # Ventana: 500x520
         window_width = 500
         window_height = 520
         
         popup.geometry(f"{window_width}x{window_height}")
-        popup.configure(bg="white")
+        popup.configure(bg=_SURFACE)
         popup.resizable(False, False)
         popup.grab_set()
         
@@ -369,8 +373,8 @@ class UsersManagement:
             popup, 
             text=f"Editar Usuario",
             font=("Segoe UI", 16, "bold"),
-            fg="#0B5394",
-            bg="white"
+            fg=_PRIMARY,
+            bg=_SURFACE
         ).pack(pady=(22, 8))
 
         # Subtítulo con usuario
@@ -378,15 +382,15 @@ class UsersManagement:
             popup, 
             text=username,
             font=("Segoe UI", 12),
-            fg="#555555",
-            bg="white"
+            fg=_TEXT_SECONDARY,
+            bg=_SURFACE
         ).pack(pady=(0, 16))
 
-        # Formulario estilizado
-        form_frame = tk.Frame(popup, bg="white")
+        # Formulario
+        form_frame = tk.Frame(popup, bg=_SURFACE)
         form_frame.pack(fill="both", expand=True, padx=36, pady=0)
 
-        field_style = {"font": ("Segoe UI", 12), "bg": "white"}
+        field_style = {"font": ("Segoe UI", 12), "bg": _SURFACE, "fg": _TEXT}
         entry_style = {"font": ("Segoe UI", 12), "width": 34}
 
         tk.Label(form_frame, text="Usuario:", **field_style).pack(anchor="w", pady=(0, 6))
@@ -404,20 +408,19 @@ class UsersManagement:
         password_entry.pack(fill="x", pady=(0, 8))
         
         tk.Label(form_frame, text="(Dejar vacío para mantener la actual)", 
-                font=("Segoe UI", 10), bg="white", fg="#888").pack(anchor="w", pady=(0, 14))
+                 font=("Segoe UI", 10), bg=_SURFACE, fg=_TEXT_SECONDARY).pack(anchor="w", pady=(0, 14))
 
         tk.Label(form_frame, text="Rol:", **field_style).pack(anchor="w", pady=(0, 6))
         rol_var = tk.StringVar(value=rol)
-        rol_frame = tk.Frame(form_frame, bg="white")
+        rol_frame = tk.Frame(form_frame, bg=_SURFACE)
         rol_frame.pack(fill="x", pady=(0, 14))
         
-        # Opciones de rol con mejor estilo
-        rb_style = {"font": ("Segoe UI", 11), "bg": "white", "activebackground": "white"}
+        rb_style = {"font": ("Segoe UI", 11), "bg": _SURFACE, "activebackground": _SURFACE}
         tk.Radiobutton(rol_frame, text="Usuario", variable=rol_var, value="usuario", **rb_style).pack(side="left", padx=12)
         tk.Radiobutton(rol_frame, text="Administrador", variable=rol_var, value="admin", **rb_style).pack(side="left", padx=12)
 
-        # Botones con estilo
-        btn_frame = tk.Frame(popup, bg="white")
+        # Botones
+        btn_frame = tk.Frame(popup, bg=_SURFACE)
         btn_frame.pack(fill="x", pady=20, padx=36)
 
         def save_changes():
@@ -441,14 +444,13 @@ class UsersManagement:
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo actualizar el usuario: {e}", parent=popup)
 
-        # Botones con estilos consistentes
         btn_save = tk.Button(
             btn_frame,
             text="Guardar Cambios",
             font=("Segoe UI", 12, "bold"),
-            bg="#0B5394",
+            bg=_PRIMARY,
             fg="white",
-            activebackground="#073763",
+            activebackground=_PRIMARY_DARK,
             activeforeground="white",
             relief="flat",
             cursor="hand2",

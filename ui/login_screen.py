@@ -355,7 +355,7 @@ class LoginWindow(tk.Tk):
 
         # Botón entrar admin — empieza deshabilitado
         self._admin_login_btn = tk.Button(
-            content, text="Entrar", font=("Segoe UI", 12, "bold"),
+            content, text="Iniciar sesión", font=("Segoe UI", 12, "bold"),
             bg=_PRIMARY, fg="white", activebackground=_PRIMARY_DARK,
             activeforeground="white", relief="flat", height=2, command=self.authenticate_admin
         )
