@@ -338,9 +338,9 @@ class NutrimentalModule:
                       background=[('disabled', '#BDBDBD'), ('active', _PRIMARY_DARK)],
                       foreground=[('disabled', '#EEEEEE')])
             # NUEVO: estilos de botones Guardar (verde) y Limpiar (azul)
-            style.configure('Success.TButton', background='#81C784', foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
-            style.map('Success.TButton', background=[('active', '#66BB6A')])
-            style.configure('Info.TButton', background='#64B5F6', foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
+            style.configure('Success.TButton', background='#3ECF36', foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
+            style.map('Success.TButton', background=[('active', '#3ECF36')])
+            style.configure('Info.TButton', background='#1E88E5', foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
             style.map('Info.TButton', background=[('active', '#42A5F5')])
             style.configure('Secondary.TButton', background=_TEXT, foreground='white', font=("Segoe UI",10,'bold'), padding=(10,6))
             style.map('Secondary.TButton', background=[('active', _PRIMARY_DARK)])

@@ -3,18 +3,21 @@ from tkinter import messagebox  # AGREGAR ESTE IMPORT
 import os
 from PIL import Image, ImageTk, ImageDraw
 
-_BG = "#F5F5F5"            # fondo claro neutro
-_PRIMARY = "#D04E4E"       # rojo principal (Material Red 800)
-_PRIMARY_DARK = "#B71C1C"  # variante oscura coherente (Material Red 700)
-_TEXT = "#212121"          # gris oscuro, alta legibilidad
-_TEXT_SECONDARY = "#616161" # gris medio (mejor contraste que #9E9E9E)
-_SECONDARY = "#607D8B"     # azul grisáceo suave (equilibrio)
-_EMPHASIS = "#FFCDD2"      # acentos suaves (tinte del primario)
-_ALERT = "#D32F2F"         # rojo de alerta (Material Red 700/600)
+# Paleta de colores refinada (rojo elegante y agradable a la vista)
 
-# Opcionales de paleta (por si otros módulos los usan)
-_SURFACE = "#FFFFFF"       # tarjetas/fondos elevados
-_BORDER = "#E0E0E0"        # líneas y divisores sutiles
+_BG = "#FAFAFA"             # Fondo muy claro, casi blanco cálido
+_PRIMARY = "#E53935"        # Rojo coral (vibrante pero no agresivo)
+_PRIMARY_DARK = "#B71C1C"   # Rojo vino oscuro para contraste
+_TEXT = "#212121"           # Gris oscuro, máxima legibilidad
+_TEXT_SECONDARY = "#5F5F5F" # Gris medio cálido, más suave que el original
+_SECONDARY = "#8D6E63"      # Marrón grisáceo (neutral y combina bien con rojo)
+_EMPHASIS = "#FFEBEE"       # Rojo muy pálido para fondos de énfasis
+_ALERT = "#C62828"          # Rojo de alerta, consistente con el tono principal
+
+# Colores opcionales para superficies y bordes
+_SURFACE = "#FFFFFF"        # Superficies elevadas (tarjetas, paneles)
+_BORDER = "#E0E0E0"         # Divisores y bordes sutiles
+
 
 
 def bind_mousewheel(widget, canvas):
