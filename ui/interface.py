@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter.ttk as ttk
 from ui.base_interface import BaseInterface
 from ui.base_interface import _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
 from ui.menu_manager import MenuManager
@@ -6,6 +7,11 @@ from ui.nutrimental import NutrimentalModule
 from ui.historial import HistorialModule
 from ui.home_section import HomeSection
 from ui.calculations import CalculationsSection
+# --- NUEVO: PIL para generar la imagen de degradado ---
+try:
+    from PIL import Image, ImageTk
+except Exception:
+    Image = ImageTk = None
 
 class MainInterface(BaseInterface):
     def __init__(self, username=None, rol="usuario"):
@@ -28,7 +34,90 @@ class MainInterface(BaseInterface):
         self.create_header()
         self.create_content_frame()
         self.menu_manager.create_side_menu(self.menu_sections)
+        
+        # Aplicar degradado DESPUÉS de que todo esté creado
+        self._apply_gradient_header(start_color="#B71C1C", end_color="#FFCDD2")
+        
         self.show_section("Inicio")
+
+    def _apply_gradient_header(self, start_color="#B71C1C", end_color="#FFCDD2"):
+        if Image is None or ImageTk is None:
+            print("⚠️ Pillow no disponible - degradado deshabilitado")
+            return
+
+        # Buscar el frame del header en los widgets de la ventana principal
+        header = None
+        for widget in self.winfo_children():
+            # Buscar un Frame que esté en la parte superior (pack side='top' o grid row=0)
+            if isinstance(widget, (tk.Frame, ttk.Frame)):
+                pack_info = widget.pack_info()
+                if pack_info.get('side') == 'top' or not pack_info:
+                    # Verificar si tiene altura pequeña (típico de headers)
+                    widget.update_idletasks()
+                    if widget.winfo_height() < 200:  # Los headers suelen ser < 200px
+                        header = widget
+                        print(f"✅ Header encontrado: {widget}")
+                        break
+        
+        if header is None:
+            print("⚠️ No se encontró el frame del header")
+            print(f"🔍 Widgets en ventana principal: {[type(w).__name__ for w in self.winfo_children()]}")
+            return
+
+        def make_gradient(w, h):
+            """Genera imagen de degradado horizontal"""
+            img = Image.new("RGB", (max(1, w), max(1, h)))
+            
+            def hex_to_rgb(hex_color):
+                hex_color = hex_color.lstrip('#')
+                return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            
+            r0, g0, b0 = hex_to_rgb(start_color)
+            r1, g1, b1 = hex_to_rgb(end_color)
+            
+            for x in range(max(1, w)):
+                t = x / max(1, w - 1)
+                r = int(r0 + (r1 - r0) * t)
+                g = int(g0 + (g1 - g0) * t)
+                b = int(b0 + (b1 - b0) * t)
+                for y in range(h):
+                    img.putpixel((x, y), (r, g, b))
+            
+            return ImageTk.PhotoImage(img)
+
+        def refresh_gradient(event=None):
+            w = header.winfo_width()
+            h = header.winfo_height()
+            
+            if w <= 1 or h <= 1:
+                header.after(100, refresh_gradient)
+                return
+            
+            print(f"📐 Header size: {w}x{h}px")
+            
+            # Crear imagen de degradado
+            self._gradient_photo = make_gradient(w, h)
+            
+            # Crear label de degradado si no existe
+            if not hasattr(self, "_gradient_label"):
+                self._gradient_label = tk.Label(header, bd=0, highlightthickness=0)
+                self._gradient_label.place(x=0, y=0, relwidth=1, relheight=1)
+                print(f"✅ Label de degradado creado en header")
+            
+            self._gradient_label.configure(image=self._gradient_photo)
+            
+            # CLAVE: forzar que el degradado quede al fondo, detrás de todo
+            self._gradient_label.lift()
+            
+            # Luego subir todos los demás widgets del header
+            for widget in header.winfo_children():
+                if widget != self._gradient_label:
+                    widget.lift()
+            
+            print(f"🎨 Degradado aplicado y widgets reorganizados")
+
+        header.bind("<Configure>", refresh_gradient)
+        header.after(300, refresh_gradient)  # más tiempo para que el header se dimensione
 
     def toggle_menu(self):
         """Toggle del menú lateral"""
@@ -160,7 +249,7 @@ def setup_user_profile_menu():
             # Comportamiento del popup
             popup.focus_force()
             popup.bind("<FocusOut>", lambda e: popup.destroy())
-            
+
         # Reemplazar el método original
         MainInterface.show_user_menu = enhanced_show_user_menu
         
