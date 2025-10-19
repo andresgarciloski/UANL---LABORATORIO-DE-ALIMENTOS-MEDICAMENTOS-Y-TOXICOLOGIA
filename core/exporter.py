@@ -232,6 +232,8 @@ class NutrimentalExporter:
         # Tamaño de porción con unidad en F17 (escribe sólo la celda destino)
         porcion_val = entrada.get("porcion", "")
         escribir_celda_segura(ws, "F17", f"{porcion_val} {unidad}" if porcion_val != "" else "")
+        _alinear_derecha_seguro(ws, "F17")  # Alinear igual que F18 y F19
+        _alinear_izquierda_seguro(ws, "G17")  # Alinear unidad/columna G de la misma forma que G19
 
         # Porciones por envase en F18 (sin unidad para coincidir con vista previa)
         porciones_envase = resultados.get("porciones_envase", None)
@@ -243,8 +245,11 @@ class NutrimentalExporter:
                 porciones_display = porciones_envase
             escribir_celda_segura(ws, "F18", f"{porciones_display}")
             _alinear_derecha_seguro(ws, "F18")  # <-- NUEVO
+            _alinear_izquierda_seguro(ws, "G18")  # Mantener consistente con las otras filas
         else:
             escribir_celda_segura(ws, "F18", "")
+            _alinear_derecha_seguro(ws, "F18")
+            _alinear_izquierda_seguro(ws, "G18")
 
         # Contenido energético por envase (solo número) y contenido neto con unidad (F19 y F12)
         energia_envase = resultados.get('por_envase', {}).get('energia_kcal','')
@@ -255,6 +260,8 @@ class NutrimentalExporter:
             pass
         escribir_celda_segura(ws, "F19", energia_envase)
         _alinear_derecha_seguro(ws, "F19")  # <-- NUEVO
+        escribir_celda_segura(ws, "G19", "kcal" if energia_envase != "" else "")  # <-- agrega unidad
+        _alinear_izquierda_seguro(ws, "G19")  # <-- alinear unidad a la izquierda
         contenido_neto = entrada.get("contenido_neto", "")
         escribir_celda_segura(ws, "F12", f"{contenido_neto} {unidad}" if contenido_neto != "" else "")
 
