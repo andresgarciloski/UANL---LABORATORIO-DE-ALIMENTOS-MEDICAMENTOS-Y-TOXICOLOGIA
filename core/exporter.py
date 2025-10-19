@@ -231,9 +231,10 @@ class NutrimentalExporter:
         # El resto del código existente...
         # Tamaño de porción con unidad en F17 (escribe sólo la celda destino)
         porcion_val = entrada.get("porcion", "")
-        escribir_celda_segura(ws, "F17", f"{porcion_val} {unidad}" if porcion_val != "" else "")
-        _alinear_derecha_seguro(ws, "F17")  # Alinear igual que F18 y F19
-        _alinear_izquierda_seguro(ws, "G17")  # Alinear unidad/columna G de la misma forma que G19
+        escribir_celda_segura(ws, "F17", f"{porcion_val}" if porcion_val != "" else "")
+        _alinear_derecha_seguro(ws, "F17")
+        escribir_celda_segura(ws, "G17", unidad if porcion_val != "" else "")
+        _alinear_izquierda_seguro(ws, "G17")
 
         # Porciones por envase en F18 (sin unidad para coincidir con vista previa)
         porciones_envase = resultados.get("porciones_envase", None)
