@@ -829,8 +829,11 @@ class NutrimentalModule:
     # ================== NUEVO: autowrap en etiquetas de inputs ==================
     def _enable_label_autowrap(self, root_container):
         """Hace que las Label dentro de los formularios envuelvan el texto según su ancho.
-        Evita las del header (bg=_PRIMARY). Se aplica recursivamente."""
+        Evita los headers (bg=_PRIMARY y bg de header de card). Se aplica recursivamente."""
         import tkinter as tk
+
+        # No aplicar autowrap a labels de headers
+        header_bgs = {_PRIMARY, self._CARD_HEADER_BG}
 
         def _apply(lbl: tk.Label):
             # Configurar el wrap y actualizarlo cuando cambie el tamaño
@@ -848,14 +851,14 @@ class NutrimentalModule:
 
         def _walk(widget):
             for child in widget.winfo_children():
-                # Saltar labels del header (tienen fondo _PRIMARY)
                 try:
                     is_label = child.winfo_class() == 'Label'
                     bg = child.cget('bg') if is_label else None
                 except Exception:
                     is_label = False
                     bg = None
-                if is_label and bg != _PRIMARY:
+                # Evitar aplicar a headers
+                if is_label and bg not in header_bgs:
                     _apply(child)
                 # Recurse
                 _walk(child)
