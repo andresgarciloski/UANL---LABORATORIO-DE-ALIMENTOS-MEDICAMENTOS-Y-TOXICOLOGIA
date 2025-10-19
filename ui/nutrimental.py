@@ -187,14 +187,15 @@ class NutrimentalModule:
         lbl_cfg = {"foreground": _TEXT, "background": frame_bg, "font": ("Segoe UI",10,"bold")}
         # Fila 0
         tk.Label(card_body, text="N° de muestra:", **lbl_cfg).grid(row=0, column=0, sticky="w", padx=(2,8), pady=4)
-        # NUEVO: solo enteros
+        # NUEVO: permite letras/números/símbolos; validación mínima por longitud
         self.parent.nombre_entry = ttk.Entry(
-            card_body, font=("Segoe UI",10), style="Input.TEntry",
-            validate="key", validatecommand=self._vcmd_int, invalidcommand=self._ivcmd_int
+            card_body, font=("Segoe UI",10), style="Input.TEntry"
         )
         self.parent.nombre_entry.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
-        # Actualizar estado del botón al escribir
+        # Actualizar estado del botón y validar longitud mínima
         self.parent.nombre_entry.bind("<KeyRelease>", lambda e: self._update_calc_button())
+        self.parent.nombre_entry.bind("<<Paste>>", lambda e: self.parent.after(0, self._update_calc_button), add="+")
+        self.parent.nombre_entry.bind("<FocusOut>", lambda e: self._check_nombre_min_length())
         # Fila 1
         tk.Label(card_body, text="Descripción:", **lbl_cfg).grid(row=1, column=0, sticky="nw", padx=(2,8), pady=4)
         self.parent.descripcion_entry = tk.Text(card_body, font=("Segoe UI",10), height=3, bd=1, relief="solid")
@@ -670,6 +671,22 @@ class NutrimentalModule:
                 pass
         return ok
 
+    # NUEVO: validación para N° de muestra (mínimo 5 caracteres, cualquier símbolo permitido)
+    def _check_nombre_min_length(self) -> bool:
+        try:
+            s = self.parent.nombre_entry.get().strip()
+        except Exception:
+            return True
+        ok = len(s) >= 5
+        if not ok:
+            try:
+                self.parent.bell()
+                messagebox.showwarning("Dato inválido", 'El campo "N° de muestra" debe tener al menos 5 caracteres.')
+                self.parent.nombre_entry.focus_set()
+            except Exception:
+                pass
+        return ok
+
     def limpiar_campos(self):
         """Limpia todos los campos del formulario y el panel de resultados."""
         try:
@@ -714,11 +731,11 @@ class NutrimentalModule:
 
     # ---------- Habilitar/Deshabilitar "Calcular" ----------
     def _inputs_complete_and_valid(self) -> bool:
-        """Nombre (entero), Descripción >=5, y todos los nutrimentales numéricos y no vacíos."""
+        """Nombre (min 5 carac.), Descripción >=5, y todos los nutrimentales numéricos y no vacíos."""
         # Nombre
         try:
-            num = self.parent.nombre_entry.get().strip()
-            if not num or re.fullmatch(r"\d+", num) is None:
+            txt = self.parent.nombre_entry.get().strip()
+            if len(txt) < 5:
                 return False
         except Exception:
             return False
