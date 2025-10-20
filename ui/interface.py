@@ -114,7 +114,6 @@ class MainInterface(BaseInterface):
                     self._gradient_label = tk.Label(header, bd=0, highlightthickness=0)
                     self._gradient_label.place(x=0, y=0, relwidth=1, relheight=1)
                     self._gradient_label.lower()
-                    print(f"✅ Label de degradado creado {w}x{h}px")
                 
                 self._gradient_label.configure(image=self._gradient_photo)
                 

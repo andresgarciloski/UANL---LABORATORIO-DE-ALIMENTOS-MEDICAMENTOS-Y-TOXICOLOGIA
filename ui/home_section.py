@@ -6,9 +6,7 @@ from ui.base_interface import bind_mousewheel, _BG, _PRIMARY, _PRIMARY_DARK, _TE
 class HomeSection:
     def __init__(self, parent):
         self.parent = parent
-        self._hero_images = []
-        self._hero_index = 0
-        self._hero_photo_cache = {}
+        self._hero_photo_cache = None
         self._hero_title_text = 'Laboratorio de Alimentos'
         self._hero_sub_text = ''
         self._hero_user_text = ''
@@ -54,11 +52,8 @@ class HomeSection:
 
         self._hero_user_text = f"Bienvenido, {getattr(self.parent,'username','') or 'Usuario'}"
 
-        self._load_hero_images()
-        self._draw_current_hero()
-        hero_wrapper.bind('<Configure>', lambda e: self._draw_current_hero())
-        if len(self._hero_images) > 1:
-            self.parent.after(6000, self._rotate_hero)
+        self._draw_hero()
+        hero_wrapper.bind('<Configure>', lambda e: self._draw_hero())
 
         # --- TARJETA BIENVENIDA ---
         card = tk.Frame(inner, bg=_BG)
@@ -140,32 +135,26 @@ class HomeSection:
         self.parent.after(150, _update_scroll_region)
 
     # ---------------- HERO helpers -----------------
-    def _load_hero_images(self):
-        if self._hero_images:
-            return
+    def _load_hero_image(self):
+        """Cargar una sola imagen para el hero."""
         base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'img'))
-        candidates = ['fcq.jpg', 'fcq2.jpg', 'fcq3.jpg', 'fcq4.jpg', 'fcq5.jpg']
-        loaded = []
-        for name in candidates:
-            path = os.path.join(base, name)
-            if os.path.exists(path):
-                try:
-                    img = Image.open(path).convert('RGB')
-                    loaded.append(img)
-                except Exception:
-                    pass
-        if not loaded:
-            ph = Image.new('RGB', (1200, 400), _PRIMARY)
-            loaded.append(ph)
-        self._hero_images = loaded
+        # Intentar cargar fcq.jpg como imagen principal
+        path = os.path.join(base, 'fcq.jpg')
+        if os.path.exists(path):
+            try:
+                return Image.open(path).convert('RGB')
+            except Exception:
+                pass
+        # Si no existe, crear placeholder
+        return Image.new('RGB', (1200, 400), _PRIMARY)
 
     def _compose_hero(self, width, height):
-        if not self._hero_images:
-            return None
-        key = (self._hero_index, width, height)
-        if key in self._hero_photo_cache:
-            return self._hero_photo_cache[key]
-        img = self._hero_images[self._hero_index]
+        """Componer la imagen del hero con degradado."""
+        if self._hero_photo_cache and hasattr(self._hero_photo_cache, 'width'):
+            if self._hero_photo_cache.width() == width and self._hero_photo_cache.height() == height:
+                return self._hero_photo_cache
+
+        img = self._load_hero_image()
 
         # Cover resize
         scale = max(float(width) / img.width, float(height) / img.height)
@@ -185,20 +174,21 @@ class HomeSection:
         combined = Image.alpha_composite(cropped.convert("RGBA"), overlay)
 
         photo = ImageTk.PhotoImage(combined)
-        self._hero_photo_cache[key] = photo
+        self._hero_photo_cache = photo
         return photo
 
     def _draw_text_with_shadow(self, canvas, x, y, text, font, fill='white', shadow='black', offset=2, tags=()):
         canvas.create_text(x + offset, y + offset, text=text, fill=shadow, font=font, anchor='nw', tags=tags)
         canvas.create_text(x, y, text=text, fill=fill, font=font, anchor='nw', tags=tags)
 
-    def _draw_current_hero(self):
+    def _draw_hero(self):
+        """Dibujar la imagen hero fija."""
         try:
             w, h = self._hero_canvas.winfo_width(), self._hero_canvas.winfo_height()
         except Exception:
             w, h = 0, 0
         if w < 20 or h < 20:
-            self.parent.after(120, self._draw_current_hero)
+            self.parent.after(120, self._draw_hero)
             return
 
         photo = self._compose_hero(w, h)
@@ -221,14 +211,6 @@ class HomeSection:
                                     sub_font, fill="#f0f0f0", shadow="#1a1a1a", offset=1)
         self._draw_text_with_shadow(self._hero_canvas, left, y_base + 72, self._hero_user_text,
                                     user_font, fill="#f5f5f5", shadow="#1a1a1a", offset=1)
-
-    def _rotate_hero(self):
-        if not self._hero_images or len(self._hero_images) < 2:
-            return
-        self._hero_index = (self._hero_index + 1) % len(self._hero_images)
-        self._hero_photo_cache.clear()
-        self._draw_current_hero()
-        self.parent.after(6000, self._rotate_hero)
 
     # ---------------- Icon helper -----------------
     def _load_icon(self, name, size=40):
