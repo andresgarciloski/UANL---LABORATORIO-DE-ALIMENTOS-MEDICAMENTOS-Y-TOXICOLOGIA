@@ -10,6 +10,8 @@ class HomeSection:
         self._hero_title_text = 'Laboratorio de Alimentos'
         self._hero_sub_text = ''
         self._hero_user_text = ''
+        self._resize_timer = None
+        self._last_size = (0, 0)
 
     def show_home_section(self):
         """Mostrar sección de inicio con estilo moderno y sobrio."""
@@ -53,7 +55,7 @@ class HomeSection:
         self._hero_user_text = f"Bienvenido, {getattr(self.parent,'username','') or 'Usuario'}"
 
         self._draw_hero()
-        hero_wrapper.bind('<Configure>', lambda e: self._draw_hero())
+        hero_wrapper.bind('<Configure>', lambda e: self._schedule_hero_redraw())
 
         # --- TARJETA BIENVENIDA ---
         card = tk.Frame(inner, bg=_BG)
@@ -135,6 +137,12 @@ class HomeSection:
         self.parent.after(150, _update_scroll_region)
 
     # ---------------- HERO helpers -----------------
+    def _schedule_hero_redraw(self):
+        """Programar redibujo del hero con debounce para evitar parpadeos."""
+        if self._resize_timer:
+            self.parent.after_cancel(self._resize_timer)
+        self._resize_timer = self.parent.after(150, self._draw_hero)
+
     def _load_hero_image(self):
         """Cargar una sola imagen para el hero."""
         base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'img'))
@@ -150,9 +158,19 @@ class HomeSection:
 
     def _compose_hero(self, width, height):
         """Componer la imagen del hero con degradado."""
+        # Verificar si ya tenemos una imagen del mismo tamaño
         if self._hero_photo_cache and hasattr(self._hero_photo_cache, 'width'):
             if self._hero_photo_cache.width() == width and self._hero_photo_cache.height() == height:
                 return self._hero_photo_cache
+
+        # Solo regenerar si el cambio de tamaño es significativo (más de 10px)
+        if self._last_size:
+            width_diff = abs(width - self._last_size[0])
+            height_diff = abs(height - self._last_size[1])
+            if width_diff < 10 and height_diff < 10:
+                return self._hero_photo_cache
+
+        self._last_size = (width, height)
 
         img = self._load_hero_image()
 
