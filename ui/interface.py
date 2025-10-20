@@ -93,31 +93,45 @@ class MainInterface(BaseInterface):
                 header.after(100, refresh_gradient)
                 return
             
-            print(f"📐 Header size: {w}x{h}px")
-            
             # Crear imagen de degradado
             self._gradient_photo = make_gradient(w, h)
             
-            # Crear label de degradado si no existe
-            if not hasattr(self, "_gradient_label"):
-                self._gradient_label = tk.Label(header, bd=0, highlightthickness=0)
-                self._gradient_label.place(x=0, y=0, relwidth=1, relheight=1)
-                print(f"✅ Label de degradado creado en header")
-            
-            self._gradient_label.configure(image=self._gradient_photo)
-            
-            # CLAVE: forzar que el degradado quede al fondo, detrás de todo
-            self._gradient_label.lift()
-            
-            # Luego subir todos los demás widgets del header
+            # Buscar el label con la imagen del banner
+            banner_label = None
             for widget in header.winfo_children():
-                if widget != self._gradient_label:
-                    widget.lift()
+                if isinstance(widget, tk.Label):
+                    if hasattr(widget, 'image') or widget.cget('image'):
+                        banner_label = widget
+                        break
             
-            print(f"🎨 Degradado aplicado y widgets reorganizados")
+            # Reemplazar banner con degradado
+            if banner_label:
+                banner_label.configure(image=self._gradient_photo)
+                self._gradient_label = banner_label
+                
+                # Asegurar que el texto y otros widgets estén encima
+                for widget in header.winfo_children():
+                    if widget != banner_label:
+                        widget.lift()
+                
+                print(f"🔄 Banner reemplazado con degradado {w}x{h}px")
+            else:
+                # Si no hay banner, crear label nuevo
+                if not hasattr(self, "_gradient_label"):
+                    self._gradient_label = tk.Label(header, bd=0, highlightthickness=0)
+                    self._gradient_label.place(x=0, y=0, relwidth=1, relheight=1)
+                    self._gradient_label.lower()
+                    print(f"✅ Label de degradado creado {w}x{h}px")
+                
+                self._gradient_label.configure(image=self._gradient_photo)
+                
+                # Levantar otros widgets
+                for widget in header.winfo_children():
+                    if widget != self._gradient_label:
+                        widget.lift()
 
         header.bind("<Configure>", refresh_gradient)
-        header.after(300, refresh_gradient)  # más tiempo para que el header se dimensione
+        header.after(300, refresh_gradient)
 
     def toggle_menu(self):
         """Toggle del menú lateral"""
