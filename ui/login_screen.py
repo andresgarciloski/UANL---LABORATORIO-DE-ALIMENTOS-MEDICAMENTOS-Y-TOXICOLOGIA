@@ -1,9 +1,9 @@
+import os  # Agregar esta línea
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from ui.interface import MainInterface
 from ui.interface_admin import MainInterfaceAdmin  # Agrega este import al inicio
 from PIL import Image, ImageTk, ImageDraw
-import os
 
 from core.auth import verificar_login
 from ui.base_interface import _BG, _PRIMARY, _PRIMARY_DARK, _TEXT
@@ -160,6 +160,34 @@ class LoginWindow(tk.Tk):
         for widget in self.winfo_children():
             widget.destroy()
 
+    def _apply_gradient_header(self, start_color="#B71C1C", end_color="#FFCDD2"):
+        # Función para aplicar el degradado al encabezado
+        header = self.winfo_children()[0]  # Asumiendo que el header es el primer hijo
+        header.update_idletasks()  # Asegúrate de que el encabezado esté completamente renderizado
+        w = header.winfo_width()
+        h = header.winfo_height()
+
+        img = Image.new("RGB", (max(1, w), max(1, h)))
+
+        def hex_to_rgb(hex_color):
+            hex_color = hex_color.lstrip('#')
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+        r0, g0, b0 = hex_to_rgb(start_color)
+        r1, g1, b1 = hex_to_rgb(end_color)
+
+        for x in range(max(1, w)):
+            t = x / max(1, w - 1)
+            r = int(r0 + (r1 - r0) * t)
+            g = int(g0 + (g1 - g0) * t)
+            b = int(b0 + (b1 - b0) * t)
+            for y in range(h):
+                img.putpixel((x, y), (r, g, b))
+
+        self._gradient_photo = ImageTk.PhotoImage(img)
+        label = tk.Label(header, image=self._gradient_photo)
+        label.place(x=0, y=0, relwidth=1, relheight=1)
+
     # ------------- Login usuario -------------
     def build_login_ui(self):
         self.clear_ui()
@@ -168,7 +196,9 @@ class LoginWindow(tk.Tk):
         # Encabezado (alineado a la izquierda)
         header = tk.Frame(self, bg=_PRIMARY, height=64)
         header.pack(fill="x")
-        
+
+        # Aplicar degradado al encabezado después de un breve retraso
+        self.after(100, self._apply_gradient_header)  # Ajusta el tiempo si es necesario
 
         # Avatar
         avatar_holder = tk.Frame(self, bg=_BG)
@@ -286,24 +316,26 @@ class LoginWindow(tk.Tk):
 
         header = tk.Frame(self, bg=_PRIMARY, height=64)
         header.pack(fill="x")
-        
 
-        # Avatar admin
-        avatar = tk.Frame(self, bg=_BG)
-        avatar.pack(pady=(28, 6))
+        # Aplicar degradado al encabezado
+        self._apply_gradient_header()
+
+        # Avatar admin (revertido a igual que el de usuario)
+        avatar_holder = tk.Frame(self, bg=_BG)
+        avatar_holder.pack(pady=(28, 6))
         try:
-            img_path = self._get_img_path("bruni.png")
-            admin_img = Image.open(img_path).resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+            img_path = self._get_img_path("bruni.png")  # Usar la misma imagen que el usuario
+            bruni_img = Image.open(img_path).resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
             mask = Image.new('L', (AVATAR_SIZE, AVATAR_SIZE), 0)
             draw = ImageDraw.Draw(mask)
             draw.ellipse((0, 0, AVATAR_SIZE, AVATAR_SIZE), fill=255)
-            admin_img.putalpha(mask)
-            admin_photo = ImageTk.PhotoImage(admin_img)
-            lbl = tk.Label(avatar, image=admin_photo, bg=_BG)
-            lbl.image = admin_photo
+            bruni_img.putalpha(mask)
+            bruni_photo = ImageTk.PhotoImage(bruni_img)
+            lbl = tk.Label(avatar_holder, image=bruni_photo, bg=_BG)
+            lbl.image = bruni_photo
             lbl.pack()
         except Exception:
-            tk.Label(avatar, text="👤", font=("Segoe UI", 48), bg=_BG, fg=_PRIMARY).pack()
+            tk.Label(avatar_holder, text="👤", font=("Segoe UI", 48), bg=_BG, fg=_PRIMARY).pack()
 
         # Contenido sin "card"
         content = tk.Frame(self, bg=_BG)
