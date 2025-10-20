@@ -168,10 +168,7 @@ class LoginWindow(tk.Tk):
         # Encabezado (alineado a la izquierda)
         header = tk.Frame(self, bg=_PRIMARY, height=64)
         header.pack(fill="x")
-        tk.Label(
-            header, text="Acceso de usuarios", bg=_PRIMARY, fg="white",
-            font=("Segoe UI", 16, "bold")
-        ).pack(side="left", padx=18, pady=14)
+        
 
         # Avatar
         avatar_holder = tk.Frame(self, bg=_BG)
@@ -289,11 +286,7 @@ class LoginWindow(tk.Tk):
 
         header = tk.Frame(self, bg=_PRIMARY, height=64)
         header.pack(fill="x")
-        # Alineado a la izquierda (igual al de usuario)
-        tk.Label(
-            header, text="Acceso administrador", bg=_PRIMARY, fg="white",
-            font=("Segoe UI", 16, "bold")
-        ).pack(side="left", padx=18, pady=14)
+        
 
         # Avatar admin
         avatar = tk.Frame(self, bg=_BG)
