@@ -42,7 +42,6 @@ class MainInterface(BaseInterface):
 
     def _apply_gradient_header(self, start_color="#B71C1C", end_color="#FFCDD2"):
         if Image is None or ImageTk is None:
-            print("⚠️ Pillow no disponible - degradado deshabilitado")
             return
 
         # Buscar el frame del header en los widgets de la ventana principal
@@ -56,13 +55,7 @@ class MainInterface(BaseInterface):
                     widget.update_idletasks()
                     if widget.winfo_height() < 200:  # Los headers suelen ser < 200px
                         header = widget
-                        print(f"✅ Header encontrado: {widget}")
                         break
-        
-        if header is None:
-            print("⚠️ No se encontró el frame del header")
-            print(f"🔍 Widgets en ventana principal: {[type(w).__name__ for w in self.winfo_children()]}")
-            return
 
         def make_gradient(w, h):
             """Genera imagen de degradado horizontal"""
@@ -114,7 +107,7 @@ class MainInterface(BaseInterface):
                     if widget != banner_label:
                         widget.lift()
                 
-                print(f"🔄 Banner reemplazado con degradado {w}x{h}px")
+                
             else:
                 # Si no hay banner, crear label nuevo
                 if not hasattr(self, "_gradient_label"):

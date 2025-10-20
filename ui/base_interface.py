@@ -87,18 +87,37 @@ class BaseInterface(tk.Tk):
         )
         self.menu_toggle_btn.pack(side="left", padx=(20, 10), pady=10)
 
-        # Título clickable
-        title = tk.Label(
-            header,
-            text="Facultad de Ciencias Químicas - UANL",
-            bg=_PRIMARY,
-            fg="white",
-            font=("Segoe UI", 16, "bold"),
-            padx=10,
-            cursor="hand2"
-        )
-        title.pack(side="left", pady=10)
-        title.bind("<Button-1>", lambda e: self.show_section("Inicio"))
+        # REEMPLAZO: icono clickeable (en lugar del título)
+        try:
+            # Cambia esta ruta por la de tu imagen
+            logo_path = os.path.abspath(r"C:\img\home.png")
+            logo_img = Image.open(logo_path).resize((28, 28), Image.LANCZOS)
+            self.header_logo_img = ImageTk.PhotoImage(logo_img)
+            self.home_btn = tk.Button(
+                header,
+                image=self.header_logo_img,
+                bg=_PRIMARY,
+                bd=0,
+                activebackground=_PRIMARY_DARK,
+                cursor="hand2",
+                command=lambda: self.show_section("Inicio")
+            )
+            self.home_btn.pack(side="left", pady=8, padx=(0, 8))
+        except Exception:
+            # Fallback si la imagen no existe
+            self.home_btn = tk.Button(
+                header,
+                text="🏠",
+                bg=_PRIMARY,
+                fg="white",
+                bd=0,
+                activebackground=_PRIMARY_DARK,
+                activeforeground="white",
+                font=("Segoe UI", 16),
+                cursor="hand2",
+                command=lambda: self.show_section("Inicio")
+            )
+            self.home_btn.pack(side="left", pady=8, padx=(0, 8))
 
         # Usuario y foto circular
         self.create_user_section(header)
@@ -107,16 +126,6 @@ class BaseInterface(tk.Tk):
         """Crear sección de usuario en header"""
         user_frame = tk.Frame(header, bg=_PRIMARY)
         user_frame.pack(side="right", padx=20)
-
-        user_label = tk.Label(
-            user_frame,
-            text=self.username if self.username else "Usuario",
-            bg=_PRIMARY,
-            fg="white",
-            font=("Segoe UI", 12, "bold"),
-            padx=10
-        )
-        user_label.pack(side="left")
 
         # Imagen circular
         try:
