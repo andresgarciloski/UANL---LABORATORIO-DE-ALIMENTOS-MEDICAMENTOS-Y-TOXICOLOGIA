@@ -14,15 +14,6 @@ class CalculationsSection:
         main_frame = tk.Frame(self.parent.content_frame, bg=_BG)
         main_frame.pack(fill="both", expand=True)
 
-        # Header de sección (sub-encabezado)
-        header = tk.Frame(main_frame, bg=_PRIMARY, height=70, highlightthickness=0)
-        header.pack(fill="x", side="top")
-        header.grid_propagate(False)
-        tk.Label(header, text="Módulo de Cálculos", bg=_PRIMARY, fg="white",
-                 font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=18, pady=(10, 0))
-        tk.Label(header, text="Herramientas auxiliares para cálculos químicos y nutricionales.",
-                 bg=_PRIMARY, fg="white", font=("Segoe UI", 10)).pack(anchor="w", padx=18, pady=(0, 8))
-
         # Canvas y scrollbar para scroll (usa paleta)
         canvas = tk.Canvas(main_frame, bg=_BG, highlightthickness=0, bd=0)
         scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)

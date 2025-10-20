@@ -100,13 +100,7 @@ class NutrimentalModule:
 
         root = tk.Frame(self.parent.content_frame, bg=_BG)
         root.pack(fill="both", expand=True)
-        # Header con pseudo degradado simple (dos frames superpuestos)
-        header = tk.Frame(root, bg=_PRIMARY, height=70, highlightthickness=0)
-        header.pack(fill='x', side='top')
-        header.grid_propagate(False)
-        tk.Label(header, text="Tabla Nutrimental", bg=_PRIMARY, fg='white', font=("Segoe UI",18,'bold')).pack(anchor='w', padx=18, pady=(10,0))
-        tk.Label(header, text="Ingresa los datos base y genera la tabla oficial.", bg=_PRIMARY, fg='white', font=("Segoe UI",10)).pack(anchor='w', padx=18, pady=(0,8))
-
+        
         # CONTENEDOR FIJO SIN PANEDWINDOW
         content = tk.Frame(root, bg=_BG)
         content.pack(fill='both', expand=True)
