@@ -168,28 +168,35 @@ class BaseInterface(tk.Tk):
 
     def create_user_section(self, header):
         """Crear sección de usuario en header"""
-        user_frame = tk.Frame(header, bg=_PRIMARY)
+        user_bg = "#FFEBEE"  # rojo muy claro (disimula con el header)
+        user_frame = tk.Frame(header, bg=user_bg)
         user_frame.pack(side="right", padx=20)
 
-        # Imagen circular
         try:
             img_path = os.path.join(os.path.dirname(__file__), "..", "img", "bruni.png")
             img_path = os.path.abspath(img_path)
-            user_img = Image.open(img_path).resize((40, 40), Image.LANCZOS)
-            mask = Image.new('L', (40, 40), 0)
-            draw = ImageDraw.Draw(mask)
-            draw.ellipse((0, 0, 40, 40), fill=255)
-            user_img.putalpha(mask)
-            self.user_icon = ImageTk.PhotoImage(user_img)
-            
+
+            size = 40
+            avatar = Image.open(img_path).resize((size, size), Image.LANCZOS).convert("RGBA")
+
+            # Máscara circular
+            mask = Image.new("L", (size, size), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, size, size), fill=255)
+            avatar.putalpha(mask)
+
+            # Componer sobre un fondo cuadrado del mismo color claro (evita “cuadro” notorio)
+            canvas = Image.new("RGB", (size, size), user_bg)
+            canvas.paste(avatar, (0, 0), avatar)
+
+            self.user_icon = ImageTk.PhotoImage(canvas)
             self.user_btn = tk.Button(
                 user_frame,
                 image=self.user_icon,
-                bg=_PRIMARY,
+                bg=user_bg,
+                activebackground=user_bg,
                 bd=0,
                 relief="flat",
                 highlightthickness=0,
-                activebackground=_PRIMARY,
                 cursor="hand2",
                 command=self.show_user_menu
             )
@@ -199,11 +206,11 @@ class BaseInterface(tk.Tk):
             self.user_btn = tk.Button(
                 user_frame,
                 text="👤",
-                bg=_PRIMARY,
+                bg=user_bg,
+                activebackground=user_bg,
                 bd=0,
                 relief="flat",
                 highlightthickness=0,
-                activebackground=_PRIMARY,
                 cursor="hand2",
                 command=self.show_user_menu,
                 font=("Segoe UI", 16)
