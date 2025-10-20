@@ -86,10 +86,10 @@ class BaseInterface(tk.Tk):
             command=self.toggle_menu
         )
         self.menu_toggle_btn.pack(side="left", padx=(20, 10), pady=10)
+        self.menu_toggle_btn.configure(relief="flat", highlightthickness=0, bd=0)
 
         # REEMPLAZO: icono clickeable (en lugar del título)
         try:
-            # Cambia esta ruta por la de tu imagen
             logo_path = os.path.abspath(r"C:\img\home.png")
             logo_img = Image.open(logo_path).resize((28, 28), Image.LANCZOS)
             self.header_logo_img = ImageTk.PhotoImage(logo_img)
@@ -103,8 +103,8 @@ class BaseInterface(tk.Tk):
                 command=lambda: self.show_section("Inicio")
             )
             self.home_btn.pack(side="left", pady=8, padx=(0, 8))
+            self.home_btn.configure(relief="flat", highlightthickness=0, bd=0)
         except Exception:
-            # Fallback si la imagen no existe
             self.home_btn = tk.Button(
                 header,
                 text="🏠",
@@ -118,9 +118,53 @@ class BaseInterface(tk.Tk):
                 command=lambda: self.show_section("Inicio")
             )
             self.home_btn.pack(side="left", pady=8, padx=(0, 8))
+            self.home_btn.configure(relief="flat", highlightthickness=0, bd=0)
 
         # Usuario y foto circular
         self.create_user_section(header)
+
+        # --- NUEVO: camuflar fondo de menú y home con el degradado del header ---
+        def _hex_to_rgb(hx):
+            hx = hx.lstrip("#")
+            return tuple(int(hx[i:i+2], 16) for i in (0, 2, 4))
+
+        def _rgb_to_hex(rgb):
+            return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+        GRAD_START = "#B71C1C"  # mismo inicio del degradado del header
+        GRAD_END   = "#FFCDD2"  # mismo fin del degradado del header
+
+        def _lerp_color(c0, c1, t):
+            r0, g0, b0 = _hex_to_rgb(c0)
+            r1, g1, b1 = _hex_to_rgb(c1)
+            r = int(r0 + (r1 - r0) * t)
+            g = int(g0 + (g1 - g0) * t)
+            b = int(b0 + (b1 - b0) * t)
+            return _rgb_to_hex((r, g, b))
+
+        def _sync_header_btns_bg(event=None):
+            try:
+                w = header.winfo_width()
+                if w <= 1:
+                    header.after(50, _sync_header_btns_bg)
+                    return
+                for btn in (self.menu_toggle_btn, self.home_btn):
+                    if not btn or not btn.winfo_exists():
+                        continue
+                    x = btn.winfo_x() + btn.winfo_width() / 2
+                    t = max(0.0, min(1.0, x / max(1, w)))
+                    color = _lerp_color(GRAD_START, GRAD_END, t)
+                    btn.configure(bg=color, activebackground=color, relief="flat", highlightthickness=0, bd=0)
+            except Exception:
+                color = header.cget("bg")
+                for btn in (self.menu_toggle_btn, self.home_btn):
+                    try:
+                        btn.configure(bg=color, activebackground=color)
+                    except Exception:
+                        pass
+
+        header.bind("<Configure>", _sync_header_btns_bg)
+        header.after(80, _sync_header_btns_bg)
 
     def create_user_section(self, header):
         """Crear sección de usuario en header"""
@@ -143,6 +187,8 @@ class BaseInterface(tk.Tk):
                 image=self.user_icon,
                 bg=_PRIMARY,
                 bd=0,
+                relief="flat",
+                highlightthickness=0,
                 activebackground=_PRIMARY,
                 cursor="hand2",
                 command=self.show_user_menu
@@ -155,12 +201,64 @@ class BaseInterface(tk.Tk):
                 text="👤",
                 bg=_PRIMARY,
                 bd=0,
+                relief="flat",
+                highlightthickness=0,
                 activebackground=_PRIMARY,
                 cursor="hand2",
                 command=self.show_user_menu,
                 font=("Segoe UI", 16)
             )
             self.user_btn.pack(side="left")
+
+        # --- NUEVO: igualar el fondo del botón al color exacto del degradado del header en su posición ---
+        def _hex_to_rgb(hx):
+            hx = hx.lstrip("#")
+            return tuple(int(hx[i:i+2], 16) for i in (0, 2, 4))
+
+        def _rgb_to_hex(rgb):
+            return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+        # Ajusta estos colores si cambiaste el degradado del header
+        GRAD_START = "#B71C1C"  # rojo intenso
+        GRAD_END   = "#FFCDD2"  # rojo claro
+
+        def _lerp_color(c0, c1, t):
+            r0, g0, b0 = _hex_to_rgb(c0)
+            r1, g1, b1 = _hex_to_rgb(c1)
+            r = int(r0 + (r1 - r0) * t)
+            g = int(g0 + (g1 - g0) * t)
+            b = int(b0 + (b1 - b0) * t)
+            return _rgb_to_hex((r, g, b))
+
+        def _sync_user_bg(event=None):
+            try:
+                w = header.winfo_width()
+                if w <= 1:
+                    header.after(50, _sync_user_bg)
+                    return
+                # centro del user_frame respecto al header (para muestrear el degradado horizontal)
+                x = user_frame.winfo_x() + user_frame.winfo_width() / 2
+                t = max(0.0, min(1.0, x / max(1, w)))
+                color = _lerp_color(GRAD_START, GRAD_END, t)
+
+                # aplicar color calculado para “camuflar” el rectángulo
+                user_frame.configure(bg=color)
+                try:
+                    self.user_btn.configure(bg=color, activebackground=color, highlightthickness=0, bd=0, relief="flat")
+                except Exception:
+                    pass
+            except Exception:
+                # Fallback: igualar al bg del header si algo falla
+                color = header.cget("bg")
+                user_frame.configure(bg=color)
+                try:
+                    self.user_btn.configure(bg=color, activebackground=color)
+                except Exception:
+                    pass
+
+        # Actualizar cuando el header cambie de tamaño/posición (degradado)
+        header.bind("<Configure>", _sync_user_bg)
+        header.after(80, _sync_user_bg)
 
     def create_content_frame(self):
         """Crear frame de contenido"""
