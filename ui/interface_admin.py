@@ -167,3 +167,12 @@ def _initialize_admin_interfaces():
 # Llamar a la función al final del archivo
 if __name__ != "__main__":  # Solo si se importa, no al ejecutar directo
     _initialize_admin_interfaces()
+
+class AdminInterface(BaseInterface):
+    def __init__(self, username=None, rol="admin"):
+        super().__init__(username, rol)
+        header = self.create_header()          # usa el header común
+        self.create_content_frame()
+        # Aplicar el mismo degradado del header
+        # Reforzar el degradado explícitamente
+        self.apply_gradient_header(header=header, start_color="#B71C1C", end_color="#FFCDD2")

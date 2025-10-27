@@ -1,7 +1,8 @@
-import tkinter as tk
-from tkinter import messagebox  # AGREGAR ESTE IMPORT
-import os
+import tkinter as tk  # <-- NECESARIO
+from tkinter import messagebox
+from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw
+import os
 
 # Paleta de colores refinada (rojo elegante y agradable a la vista)
 
@@ -18,7 +19,11 @@ _ALERT = "#C62828"          # Rojo de alerta, consistente con el tono principal
 _SURFACE = "#FFFFFF"        # Superficies elevadas (tarjetas, paneles)
 _BORDER = "#E0E0E0"         # Divisores y bordes sutiles
 
-
+# Importa PIL de forma segura para todo el proyecto
+try:
+    from PIL import Image, ImageTk
+except Exception:
+    Image = ImageTk = None
 
 def bind_mousewheel(widget, canvas):
     """Función para enlazar el scroll del mouse a un canvas solo cuando el mouse está sobre el widget"""
@@ -71,6 +76,7 @@ class BaseInterface(tk.Tk):
         """Crear header común"""
         header = tk.Frame(self, bg=_PRIMARY, height=60)
         header.pack(side="top", fill="x")
+        self.header_frame = header  # <-- guardar referencia
 
         # Botón del menú lateral
         self.menu_toggle_btn = tk.Button(
@@ -165,6 +171,14 @@ class BaseInterface(tk.Tk):
 
         header.bind("<Configure>", _sync_header_btns_bg)
         header.after(80, _sync_header_btns_bg)
+
+        # APLICAR DEGRADADO PARA TODOS (usuario y admin)
+        try:
+            self.apply_gradient_header(header=header, start_color="#B71C1C", end_color="#FFCDD2")
+        except Exception:
+            pass
+
+        return header
 
     def create_user_section(self, header):
         """Crear sección de usuario en header"""
@@ -345,6 +359,68 @@ class BaseInterface(tk.Tk):
         except Exception as e:
             messagebox.showerror("Error", f"Error al obtener ID de usuario: {e}")
             return None
+
+    def apply_gradient_header(self, header=None, start_color="#B71C1C", end_color="#FFCDD2"):
+        """Aplica un degradado al header indicado; si header es None, intenta localizarlo."""
+        try:
+            Image, ImageTk  # asegurar PIL
+        except Exception:
+            return
+
+        # Usar header explícito o detectar el primero en top
+        if header is None:
+            for widget in self.winfo_children():
+                if isinstance(widget, (tk.Frame, ttk.Frame)):
+                    try:
+                        pack_info = widget.pack_info()
+                    except Exception:
+                        pack_info = {}
+                    if pack_info.get("side") == "top" or not pack_info:
+                        widget.update_idletasks()
+                        if widget.winfo_height() < 200:
+                            header = widget
+                            break
+            if header is None:
+                return
+
+        def make_gradient(w, h):
+            img = Image.new("RGB", (max(1, w), max(1, h)))
+            def hex_to_rgb(hex_color):
+                hex_color = hex_color.lstrip("#")
+                return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            r0, g0, b0 = hex_to_rgb(start_color)
+            r1, g1, b1 = hex_to_rgb(end_color)
+            for x in range(max(1, w)):
+                t = x / max(1, w - 1)
+                r = int(r0 + (r1 - r0) * t)
+                g = int(g0 + (g1 - g0) * t)
+                b = int(b0 + (b1 - b0) * t)
+                for y in range(h):
+                    img.putpixel((x, y), (r, g, b))
+            return ImageTk.PhotoImage(img)
+
+        def refresh_gradient(event=None):
+            w = header.winfo_width()
+            h = header.winfo_height()
+            if w <= 1 or h <= 1:
+                header.after(100, refresh_gradient)
+                return
+            self._gradient_photo = make_gradient(w, h)
+
+            # Label de fondo para el degradado
+            if not hasattr(self, "_gradient_label") or (self._gradient_label.winfo_exists() == 0):
+                self._gradient_label = tk.Label(header, bd=0, highlightthickness=0)
+                self._gradient_label.place(x=0, y=0, relwidth=1, relheight=1)
+                self._gradient_label.lower()
+            self._gradient_label.configure(image=self._gradient_photo)
+
+            # Asegurar que los demás widgets queden encima
+            for wdg in header.winfo_children():
+                if wdg != self._gradient_label:
+                    wdg.lift()
+
+        header.bind("<Configure>", refresh_gradient)
+        header.after(300, refresh_gradient)
 
     # Métodos que deben ser implementados por las clases hijas
     def toggle_menu(self):

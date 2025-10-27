@@ -34,16 +34,12 @@ class MainInterface(BaseInterface):
         self.create_header()
         self.create_content_frame()
         self.menu_manager.create_side_menu(self.menu_sections)
-        
-        # Aplicar degradado DESPUÉS de que todo esté creado
-        self._apply_gradient_header(start_color="#B71C1C", end_color="#FFCDD2")
-        
+        # Usar la versión común del degradado
+        self.apply_gradient_header(start_color="#B71C1C", end_color="#FFCDD2")
         self.show_section("Inicio")
 
+    # Simplificar para mantener compatibilidad con llamadas existentes
     def _apply_gradient_header(self, start_color="#B71C1C", end_color="#FFCDD2"):
-        if Image is None or ImageTk is None:
-            return
-
         # Buscar el frame del header en los widgets de la ventana principal
         header = None
         for widget in self.winfo_children():
