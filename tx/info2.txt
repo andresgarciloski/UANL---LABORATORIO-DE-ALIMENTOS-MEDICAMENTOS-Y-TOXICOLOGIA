@@ -20,3 +20,5 @@ O también cuando los mg de sodio sean iguales o mayores a las kcalorías en 100
 
 13-10-2025 - Ajustar letras de menú de tabla, por que esta desfasado. N° Permita letra y numero. Mover la alineación del tipo de porción.
 
+Agregar texto de sellos
+

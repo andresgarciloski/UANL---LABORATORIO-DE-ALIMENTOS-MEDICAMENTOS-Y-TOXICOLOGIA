@@ -174,29 +174,28 @@ class NutrimentalExporter:
         try:
             col_letters = ["M", "N", "O", "P", "Q"]
             min_col_px = min(_col_px(c) for c in col_letters)
-            GAP_INNER = 6  # margen interno a cada lado dentro de la columna
-            side = max(64, min(140, min_col_px - GAP_INNER * 2))
+            GAP_INNER = 4  # margen interno más pequeño
+            base_side = max(64, min(140, min_col_px - GAP_INNER * 2))
+            # hacerlos un poco más grandes sin tocar celdas
+            side = min(180, int(round(base_side * 1.20)))
             STAMP_SIZE = (side, side)
         except Exception:
-            STAMP_SIZE = (120, 120)
+            STAMP_SIZE = (144, 144)  # fallback un poco mayor
 
         # Offsets horizontales para CENTRAR el sello en cada columna (distancia visual uniforme)
         x_offsets = {c: max(0, (_col_px(c) - STAMP_SIZE[0]) // 2) for c in ["M", "N", "O", "P", "Q"]}
 
         sellos_config = {
-            "exceso_azucares":           {"imagen": "azucares.jpg",   "celda": "M5", "size": STAMP_SIZE},
-            "exceso_calorias":           {"imagen": "calorias.jpg",   "celda": "N5", "size": STAMP_SIZE},
-            "exceso_grasas_saturadas":   {"imagen": "saturadas.jpg",  "celda": "O5", "size": STAMP_SIZE},
-            "exceso_sodio":              {"imagen": "sodio.jpg",      "celda": "P5", "size": STAMP_SIZE},
-            "exceso_grasas_trans":       {"imagen": "trans.jpg",      "celda": "Q5", "size": STAMP_SIZE},
+            "exceso_azucares":           {"imagen": "azucares.jpg",   "celda": "M18", "size": STAMP_SIZE},
+            "exceso_calorias":           {"imagen": "calorias.jpg",   "celda": "O18", "size": STAMP_SIZE},
+            "exceso_grasas_saturadas":   {"imagen": "saturadas.jpg",  "celda": "Q18", "size": STAMP_SIZE},
+            "exceso_sodio":              {"imagen": "sodio.jpg",      "celda": "S18", "size": STAMP_SIZE},
+            "exceso_grasas_trans":       {"imagen": "trans.jpg",      "celda": "U18", "size": STAMP_SIZE},
         }
 
-        # Definimos un padding lateral fijo y hacemos todas las columnas M–Q iguales
-        PADDING_LR = 20  # píxeles a cada lado del sello
-        col_target_px = STAMP_SIZE[0] + (PADDING_LR * 2)
-        _set_equal_column_widths(ws, ["M", "N", "O", "P", "Q"], col_target_px)
+        # No modificar anchos/altos de filas/columnas; solo superponer imágenes más grandes
+        # (Se deja el ancho original de las columnas M–Q)
 
-        # Como ahora todas las columnas tienen el mismo ancho, la separación será uniforme
         # Inserción de imágenes
         ruta_base = os.path.join(os.path.dirname(__file__), "..", "img", "Sellos")
         for key, cfg in sellos_config.items():
@@ -268,6 +267,8 @@ class NutrimentalExporter:
 
         # Nombre y descripción
         escribir_celda_segura(ws, "C8", f"{datos_basicos.get('nombre','')} - {datos_basicos.get('descripcion','')}")
+        # También en N8
+        escribir_celda_segura(ws, "N8", f"{datos_basicos.get('nombre','')} - {datos_basicos.get('descripcion','')}")
 
         # Mapeo valores por 100g (siempre) y por porción (solo si formato_100 == False)
         m = resultados.get("por_100g", {})
