@@ -13,7 +13,7 @@ Reglas implementadas (resumen):
 5. Carbohidratos disponibles = (100 - (humedad + cenizas + proteína + grasa total) - fibra) con redondeo HALF_UP (según info.txt: hidratos totales = 100 - (humedad+cenizas+proteína+grasa); hidratos disponibles = hidratos totales - fibra).
 6. Energía (kcal) = (Proteína + Carbohidratos disponibles)*4 + Grasa total*9, luego a múltiplo de 10.
 7. Energía kJ = (Proteína + Carbohidratos disponibles)*17 + Grasa total*37 (entero).
-8. Valores por porción se derivan de los enteros por 100 g/mL (excepto sodio y trans que se recalculan desde crudos y redondean con su regla). 
+8. Valores por porción se derivan de los valores crudos por 100 g/mL (NO desde los enteros), excepto reglas especiales (sodio y trans).
 9. Energía por porción también se redondea a múltiplo de 10.
 10. Sellos de advertencia aplican límites definidos en archivo info2.txt (criterios replicados aquí).
 
@@ -387,9 +387,17 @@ class NutrimentalModule:
     def _calcular_nutrimental(self, data):
         """Delegador a core.calculos.calcular_nutrimental"""
         try:
-            return calcular_nutrimental(data)
+            res = calcular_nutrimental(data)
         except Exception:
             return {}
+        # FIX: grasa saturada, energía y porción calculados desde crudos
+        try:
+            res = self._fix_grasa_saturada_desde_porcentaje(res, data)
+            res = self._fix_energia_desde_enteros(res, data)
+            res = self._fix_porcion_desde_crudos(res, data)  # <--- NUEVO
+            return res
+        except Exception:
+            return res
 
     def _calcular_sellos_advertencia(self, resultados):
         """Delegador a core.calculos.calcular_sellos_advertencia"""
@@ -875,3 +883,169 @@ class NutrimentalModule:
                 _walk(child)
 
         _walk(root_container)
+
+    def _fix_grasa_saturada_desde_porcentaje(self, resultados: dict, data: dict) -> dict:
+        """
+        Recalcula 'grasa_saturada' a partir del % de ácidos grasos saturados (AGS)
+        ingresado por el usuario.
+
+        grasa_saturada_100g = ROUND_HALF_UP(grasa_total * (AGS%/100))
+        grasa_saturada_porcion = ROUND_HALF_UP(grasa_saturada_100g * (porcion/100))
+        """
+        # datos crudos del formulario
+        try:
+            gt = float((data.get('grasa_total') or '0').replace(',', '.'))
+        except Exception:
+            gt = 0.0
+        try:
+            ags_pct = float((data.get('acidos_grasos_saturados') or '0').replace(',', '.'))
+        except Exception:
+            ags_pct = 0.0
+        try:
+            porcion = float((data.get('porcion') or '0').replace(',', '.'))
+        except Exception:
+            porcion = 0.0
+
+        # por 100 g/mL
+        g_sat_100 = self._round_half_up(max(0.0, gt * (ags_pct / 100.0)))
+        por_100 = resultados.setdefault('por_100g', {})
+        por_100['grasa_saturada'] = g_sat_100
+
+        # por porción (derivado del entero de 100 g/mL)
+        if porcion > 0:
+            g_sat_porcion = self._aplicar_redondeo_nutrientes_porcion(g_sat_100 * (porcion / 100.0))
+            resultados.setdefault('por_porcion', {})['grasa_saturada'] = g_sat_porcion
+
+        return resultados
+
+    def _fix_energia_desde_enteros(self, resultados: dict, data: dict) -> dict:
+        """
+        Energía (kcal/kJ):
+        - Por 100 g/mL: usar nutrimentos ENTEROS por 100 g/mL.
+        - Por porción: calcular desde valores CRUDOS por 100 g/mL (no desde los enteros).
+        - Por envase: escalar desde la energía por 100 g/mL.
+        """
+        por100 = resultados.setdefault('por_100g', {})
+        # Enteros por 100 g
+        p100 = self._round_half_up(por100.get('proteina', 0))
+        c100 = self._round_half_up(por100.get('carbohidratos_disponibles', 0))
+        g100 = self._round_half_up(por100.get('grasa_total', 0))
+
+        # Energía por 100 g (enteros)
+        kcal_100 = (p100 + c100) * 4 + g100 * 9
+        kj_100 = (p100 + c100) * 17 + g100 * 37
+        por100['energia_kcal'] = self._round_half_up(kcal_100)
+        por100['energia_kj'] = self._round_half_up(kj_100)
+
+        # Porción: desde CRUDOS
+        def _f(k):
+            try:
+                return float((data.get(k) or '0').replace(',', '.'))
+            except Exception:
+                return 0.0
+
+        try:
+            porcion = float((data.get('porcion') or '0').replace(',', '.'))
+        except Exception:
+            porcion = 0.0
+
+        if porcion > 0 and not resultados.get('es_porcion_100g', False):
+            # crudos por 100 g
+            prot = _f('proteina')
+            grasa = _f('grasa_total')
+            fibra = _f('fibra_dietetica')
+            hum = _f('humedad')
+            cen = _f('cenizas')
+            carbs_disp = max(0.0, (100.0 - (hum + cen + prot + grasa)) - fibra)
+
+            factor = porcion / 100.0
+            p_por = self._aplicar_redondeo_nutrientes_porcion(prot * factor)
+            c_por = self._aplicar_redondeo_nutrientes_porcion(carbs_disp * factor)
+            g_por = self._aplicar_redondeo_nutrientes_porcion(grasa * factor)
+
+            kcal_por = (p_por + c_por) * 4 + g_por * 9
+            kj_por = (p_por + c_por) * 17 + g_por * 37
+
+            pp = resultados.setdefault('por_porcion', {})
+            # ANTES: setdefault(...) no sobrescribía
+            pp['energia_kcal'] = self._round_half_up(kcal_por)
+            pp['energia_kj'] = self._round_half_up(kj_por)
+
+        # Envase (desde energía por 100 g)
+        try:
+            neto = float((data.get('contenido_neto') or '0').replace(',', '.'))
+        except Exception:
+            neto = 0.0
+        if neto > 0:
+            factor = neto / 100.0
+            kcal_env = self._round_half_up(kcal_100 * factor)
+            kj_env = self._round_half_up(kj_100 * factor)
+            env = resultados.setdefault('por_envase', {})
+            env['energia_kcal'] = kcal_env
+            env['energia_kj'] = kj_env
+            try:
+                if 'porciones_envase' not in resultados and porcion > 0:
+                    resultados['porciones_envase'] = neto / porcion
+            except Exception:
+                pass
+
+        return resultados
+
+    def _fix_porcion_desde_crudos(self, resultados: dict, data: dict) -> dict:
+        """
+        Recalcula TODOS los nutrimentos 'por porción' desde los valores crudos por 100 g,
+        no desde los enteros de 100 g. Reglas:
+          - g: HALF_UP a entero.
+          - Sodio (mg): regla NOM escalonada.
+          - Grasas trans (mg): HALF_UP a entero.
+          - Carbohidratos disponibles crudos = (100 - (hum+cen+prot+grasa)) - fibra.
+        """
+        try:
+            porcion = float((data.get('porcion') or '0').replace(',', '.'))
+        except Exception:
+            porcion = 0.0
+        if porcion <= 0 or resultados.get('es_porcion_100g', False):
+            return resultados
+
+        def _f(k):
+            try:
+                return float((data.get(k) or '0').replace(',', '.'))
+            except Exception:
+                return 0.0
+
+        factor = porcion / 100.0
+        prot = _f('proteina')
+        grasa = _f('grasa_total')
+        fibra = _f('fibra_dietetica')
+        hum = _f('humedad')
+        cen = _f('cenizas')
+        azu = _f('azucares')
+        azu_add = _f('azucares_anadidos')
+        sodio_mg = _f('sodio')
+        trans_mg = _f('grasa_trans')
+
+        carbs_disp_crudos = max(0.0, (100.0 - (hum + cen + prot + grasa)) - fibra)
+
+        pp = resultados.setdefault('por_porcion', {})
+        # g -> HALF_UP (primero calculamos variables locales)
+        prot_por = self._aplicar_redondeo_nutrientes_porcion(prot * factor)
+        grasa_por = self._aplicar_redondeo_nutrientes_porcion(grasa * factor)
+        carbs_por = self._aplicar_redondeo_nutrientes_porcion(carbs_disp_crudos * factor)
+        azu_por = self._aplicar_redondeo_nutrientes_porcion(azu * factor)
+        azu_add_por = self._aplicar_redondeo_nutrientes_porcion(azu_add * factor)
+        # Capar: azúcares añadidos no pueden exceder a azúcares totales por porción
+        if azu_add_por > azu_por:
+            azu_add_por = azu_por
+        fibra_por = self._aplicar_redondeo_nutrientes_porcion(fibra * factor)
+
+        pp['proteina'] = prot_por
+        pp['grasa_total'] = grasa_por
+        pp['carbohidratos_disponibles'] = carbs_por
+        pp['azucares'] = azu_por
+        pp['azucares_anadidos'] = azu_add_por
+        pp['fibra_dietetica'] = fibra_por
+        # mg: reglas
+        pp['sodio'] = self._aplicar_regla_redondeo_sodio(sodio_mg * factor)
+        pp['grasa_trans'] = self._round_half_up(trans_mg * factor)
+        # Nota: 'grasa_saturada' ya se corrige en _fix_grasa_saturada_desde_porcentaje
+        return resultados
