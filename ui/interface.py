@@ -302,7 +302,7 @@ def setup_user_profile_menu():
             style_button(cerrar_btn)
             cerrar_btn.pack(fill="x", padx=6, pady=(0,8), ipady=8)
 
-            acerca_btn = tk.Button(btns, text="Acerca de", command=open_about)
+            acerca_btn = tk.Button(btns, text="Contacto", command=open_about)
             style_button(acerca_btn)
             acerca_btn.pack(fill="x", padx=6, pady=(0,0), ipady=8)
 
