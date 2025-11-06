@@ -190,70 +190,131 @@ def setup_user_profile_menu():
                     pass
                 self._user_popup = None
                 
-            # Asegurarse de que tenemos la sección de perfil
+            # Asegurar sección de perfil
             if not hasattr(self, 'profile_section'):
                 self.profile_section = UserProfileSection(self)
-                
+
+            # Helper de estilo (mismo tamaño/estilo para todos)
+            def style_button(btn):
+                btn.configure(
+                    bg=_PRIMARY, fg="white",
+                    activebackground=_PRIMARY_DARK, activeforeground="white",
+                    relief="flat", bd=0, cursor="hand2",
+                    font=("Segoe UI", 11), height=1
+                )
+
+            # Acción "Acerca de"
+            def open_about():
+                try:
+                    if self._user_popup: self._user_popup.destroy()
+                except:
+                    pass
+                win = tk.Toplevel(self)
+                win.title("Acerca de")
+                win.configure(bg=_BG)
+                win.resizable(False, False)
+                win.transient(self)
+                win.update_idletasks()
+                ww, wh = 420, 220
+                sx = self.winfo_rootx() + (self.winfo_width() - ww)//2
+                sy = self.winfo_rooty() + (self.winfo_height() - wh)//3
+                win.geometry(f"{ww}x{wh}+{max(0, sx)}+{max(0, sy)}")
+
+                wrapper = tk.Frame(win, bg=_BG)
+                wrapper.pack(fill="both", expand=True, padx=16, pady=16)
+
+                tk.Label(wrapper, text="Contacto", bg=_BG, fg=_PRIMARY,
+                         font=("Segoe UI", 12, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,8))
+
+                # Datos fijos solicitados
+                tk.Label(wrapper, text="Nombre:", bg=_BG, fg=_TEXT, font=("Segoe UI", 10, "bold"))\
+                    .grid(row=1, column=0, sticky="w", padx=(0,8), pady=4)
+                tk.Label(wrapper, text="Andrés Alejandro García Guerrero", bg=_BG, fg=_TEXT, font=("Segoe UI", 10))\
+                    .grid(row=1, column=1, sticky="w", pady=4)
+
+                tk.Label(wrapper, text="Email:", bg=_BG, fg=_TEXT, font=("Segoe UI", 10, "bold"))\
+                    .grid(row=2, column=0, sticky="w", padx=(0,8), pady=4)
+                email_lbl = tk.Label(wrapper, text="andres.garciag@uanl.edu.mx", bg=_BG, fg=_TEXT,
+                                     font=("Segoe UI", 10), cursor="hand2")
+                email_lbl.grid(row=2, column=1, sticky="w", pady=4)
+
+                tk.Label(wrapper, text="Teléfono:", bg=_BG, fg=_TEXT, font=("Segoe UI", 10, "bold"))\
+                    .grid(row=3, column=0, sticky="w", padx=(0,8), pady=4)
+                phone_lbl = tk.Label(wrapper, text="8110310901", bg=_BG, fg=_TEXT,
+                                     font=("Segoe UI", 10), cursor="hand2")
+                phone_lbl.grid(row=3, column=1, sticky="w", pady=4)
+
+                # Copiar al portapapeles al hacer clic (sin dependencias externas)
+                def copy_to_clip(text):
+                    try:
+                        win.clipboard_clear()
+                        win.clipboard_append(text)
+                    except:
+                        pass
+                email_lbl.bind("<Button-1>", lambda e: copy_to_clip("andres.garciag@uanl.edu.mx"))
+                phone_lbl.bind("<Button-1>", lambda e: copy_to_clip("8110310901"))
+
+                close_btn = tk.Button(wrapper, text="Cerrar", command=win.destroy)
+                style_button(close_btn)
+                close_btn.grid(row=4, column=1, sticky="e", pady=(12,0))
+
             # Crear popup
             popup = tk.Toplevel(self)
             self._user_popup = popup
             popup.overrideredirect(True)
+            popup.wm_attributes("-topmost", True)
             popup.configure(bg=_BG, bd=2, highlightthickness=2, highlightbackground=_PRIMARY)
-            
-            # Posicionar cerca del botón de usuario
+
+            # Posición: anclado al botón de usuario si existe
             try:
-                x = self.winfo_rootx() + self.winfo_width() - 220
-                y = self.winfo_rooty() + 70
-                popup.geometry(f"200x140+{x}+{y}")
+                ux = self.user_btn.winfo_rootx()
+                uy = self.user_btn.winfo_rooty()
+                uw = self.user_btn.winfo_width()
+                uh = self.user_btn.winfo_height()
+                popup_w = 240
+                x = int(ux + uw - popup_w)
+                y = int(uy + uh + 6)
             except:
-                popup.geometry("200x140+800+70")  # Posición por defecto
-                
-            # Mostrar nombre de usuario
-            tk.Label(
-                popup,
-                text=self.username if hasattr(self, 'username') else "Usuario",
-                bg=_BG,
-                fg=_PRIMARY,
-                font=("Segoe UI", 11, "bold")
-            ).pack(pady=(10, 2), padx=10)
-            
-            # Línea separadora
-            tk.Frame(popup, bg=_PRIMARY, height=2).pack(fill="x", padx=10, pady=2)
-            
-            # Botón Mi Perfil (nuevo)
-            tk.Button(
-                popup,
-                text="Perfil",
-                font=("Segoe UI", 11),
-                bg=_PRIMARY,
-                fg="white",
-                activebackground=_PRIMARY_DARK,
-                activeforeground="white",
-                relief="flat",
-                cursor="hand2",
-                command=lambda: [popup.destroy(), self.profile_section.show_profile_section()]
-            ).pack(fill="x", padx=20, pady=8)
-            
-            # Botón Cerrar Sesión (original)
-            tk.Button(
-                popup,
-                text="Cerrar sesión",
-                font=("Segoe UI", 11),
-                bg=_PRIMARY,
-                fg="white",
-                activebackground=_PRIMARY_DARK,
-                activeforeground="white",
-                relief="flat",
-                cursor="hand2",
-                command=lambda: [popup.destroy(), self.logout() if hasattr(self, 'logout') else None]
-            ).pack(fill="x", padx=20, pady=8)
-            
-            # Comportamiento del popup
+                popup_w = 240
+                x = self.winfo_rootx() + self.winfo_width() - popup_w - 20
+                y = self.winfo_rooty() + 70
+
+            container = tk.Frame(popup, bg=_BG)
+            container.pack(fill="both", expand=True, padx=8, pady=8)
+
+            tk.Label(container,
+                     text=self.username if hasattr(self, 'username') and self.username else "Usuario",
+                     bg=_BG, fg=_PRIMARY, font=("Segoe UI", 11, "bold"),
+                     anchor="w").pack(fill="x", padx=6, pady=(2,6))
+
+            tk.Frame(container, bg=_PRIMARY, height=2).pack(fill="x", padx=6, pady=(0,8))
+
+            btns = tk.Frame(container, bg=_BG)
+            btns.pack(fill="x")
+
+            perfil_btn = tk.Button(btns, text="Perfil",
+                                   command=lambda: [popup.destroy(), self.profile_section.show_profile_section()])
+            style_button(perfil_btn)
+            perfil_btn.pack(fill="x", padx=6, pady=(0,8), ipady=8)
+
+            cerrar_btn = tk.Button(btns, text="Cerrar sesión",
+                                   command=lambda: [popup.destroy(), self.logout() if hasattr(self, 'logout') else None])
+            style_button(cerrar_btn)
+            cerrar_btn.pack(fill="x", padx=6, pady=(0,8), ipady=8)
+
+            acerca_btn = tk.Button(btns, text="Acerca de", command=open_about)
+            style_button(acerca_btn)
+            acerca_btn.pack(fill="x", padx=6, pady=(0,0), ipady=8)
+
+            popup.update_idletasks()
+            popup_h = popup.winfo_reqheight()
+            popup.geometry(f"{popup_w}x{popup_h}+{x}+{y}")
+
             popup.focus_force()
             popup.bind("<FocusOut>", lambda e: popup.destroy())
+            popup.bind("<Escape>", lambda e: popup.destroy())
 
         # Reemplazar el método original
         MainInterface.show_user_menu = enhanced_show_user_menu
-        
 # Iniciar la modificación cuando se importe este módulo
 setup_user_profile_menu()
