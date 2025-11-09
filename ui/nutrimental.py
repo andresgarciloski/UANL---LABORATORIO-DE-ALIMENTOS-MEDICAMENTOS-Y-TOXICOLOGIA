@@ -441,9 +441,21 @@ class NutrimentalModule:
 
         por100 = resultados.get('por_100g', {})
         porcion_dict = resultados.get('por_porcion', {}) if not resultados.get('es_porcion_100g', False) else {}
+        tiene_porcion = bool(porcion_dict)
+
+        # Preparar cadenas de energía combinadas para dimensionar columnas
+        v100_kcal = _int(por100.get('energia_kcal', 0))
+        v100_kj = _int(por100.get('energia_kj', 0))
+        energia_100_str = f"{v100_kcal} kcal ({v100_kj} kJ)"
+        if tiene_porcion:
+            vpor_kcal = _int(porcion_dict.get('energia_kcal', 0))
+            vpor_kj = _int(porcion_dict.get('energia_kj', 0))
+            energia_por_str = f"{vpor_kcal} kcal ({vpor_kj} kJ)"
+        else:
+            energia_por_str = ""
+
         filas = [
-            ("energia_kcal", "Contenido energético (kcal)", "kcal"),
-            ("energia_kj", "Contenido energético (kJ)", "kJ"),
+            ("energia_comb", "Contenido energético", None),
             ("proteina", "Proteína (g)", "g"),
             ("grasa_total", "Grasa total (g)", "g"),
             ("grasa_saturada", "Grasa saturada (g)", "g"),
@@ -454,16 +466,27 @@ class NutrimentalModule:
             ("fibra_dietetica", "Fibra dietética (g)", "g"),
             ("sodio", "Sodio (mg)", "mg"),
         ]
+
         # Calcular ancho dinámico de la tabla (caracteres) según ancho del widget en píxeles
         try:
             w_px = self.parent.resultados_text.winfo_width()
-            # estimación: ~7 px por carácter con Courier New 9
             if w_px and w_px > 50:
                 ancho_total = max(60, min(140, int(w_px / 7)))
             else:
                 ancho_total = 76
         except Exception:
             ancho_total = 76
+
+        # Definir anchos de columnas. Aumentar col_val si energía combinada es más larga.
+        col_val = 9
+        col_val = max(col_val, len(energia_100_str), len(energia_por_str or ""))
+
+        if tiene_porcion:
+            restante = ancho_total - (col_val * 2) - 2
+        else:
+            restante = ancho_total - col_val - 1
+        col_nombre = max(25, min(55, restante))
+
         encabezado = "TABLA NUTRIMENTAL MEXICANA".center(ancho_total)
         line = "="*ancho_total
         texto = f"{encabezado}\n{line}\n"
@@ -475,23 +498,23 @@ class NutrimentalModule:
                 p_disp = p
             texto += f"Porciones por envase: {p_disp}\n"
         if 'por_envase' in resultados:
-            texto += f"Energía total envase: {_int(resultados['por_envase'].get('energia_kcal',''))} kcal / {_int(resultados['por_envase'].get('energia_kj',''))} kJ\n"
+            texto += f"Energía total envase: {_int(resultados['por_envase'].get('energia_kcal',''))} kcal ({_int(resultados['por_envase'].get('energia_kj',''))} kJ)\n"
         texto += "\n"
-        tiene_porcion = bool(porcion_dict)
-        # Ajustar proporciones de columnas según si hay columna de porción
-        col_val = 9  # ancho numérico fijo
-        if tiene_porcion:
-            restante = ancho_total - (col_val * 2) - 2  # 2 espacios margen
-        else:
-            restante = ancho_total - col_val - 1
-        # Limitar nombre a rango razonable
-        col_nombre = max(25, min(55, restante))
+
         if tiene_porcion:
             titulo_cols = f"{'Componente':<{col_nombre}}{'100 '+unidad_base:>{col_val}}{'Porción':>{col_val}}"
         else:
             titulo_cols = f"{'Componente':<{col_nombre}}{'100 '+unidad_base:>{col_val}}"
         texto += titulo_cols + "\n" + "-"*len(titulo_cols) + "\n"
+
         for key, nombre, _u in filas:
+            if key == "energia_comb":
+                if tiene_porcion:
+                    texto += f"{nombre:<{col_nombre}}{energia_100_str:>{col_val}}{energia_por_str:>{col_val}}\n"
+                else:
+                    texto += f"{nombre:<{col_nombre}}{energia_100_str:>{col_val}}\n"
+                continue
+
             if key not in por100:
                 continue
             v100 = _int(por100.get(key,0))
@@ -500,6 +523,7 @@ class NutrimentalModule:
                 texto += f"{nombre:<{col_nombre}}{v100:>{col_val}}{vpor:>{col_val}}\n"
             else:
                 texto += f"{nombre:<{col_nombre}}{v100:>{col_val}}\n"
+
         texto += "\n"
         sellos = self._calcular_sellos_advertencia(resultados)
         texto += "SELLOS DE ADVERTENCIA".center(ancho_total) + "\n"

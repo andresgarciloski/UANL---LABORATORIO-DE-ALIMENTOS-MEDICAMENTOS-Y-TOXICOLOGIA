@@ -8,7 +8,7 @@ from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 from core.auth import agregar_historial
 import pandas as pd
-from openpyxl.styles import Alignment  # <-- NUEVO
+from openpyxl.styles import Alignment, Font
 
 def escribir_celda_segura(ws, coord, valor):
     """Escribe en una celda asegurando que, si está dentro de un rango merged, se escriba en la celda superior izquierda."""
@@ -24,7 +24,7 @@ def escribir_celda_segura(ws, coord, valor):
     ws[coord] = valor
 
 def _alinear_derecha_seguro(ws, coord):
-    """Aplica alineación horizontal a la derecha respetando celdas combinadas."""
+    """Aplica alineación derecha (y vertical centrada) respetando celdas combinadas."""
     if not isinstance(coord, str):
         try:
             coord = coord.coordinate
@@ -33,12 +33,12 @@ def _alinear_derecha_seguro(ws, coord):
     for rango in ws.merged_cells.ranges:
         if coord in rango:
             c = ws.cell(row=rango.min_row, column=rango.min_col)
-            c.alignment = Alignment(horizontal="right")
+            c.alignment = Alignment(horizontal="right", vertical="center", indent=0, wrap_text=False, shrinkToFit=False)
             return
-    ws[coord].alignment = Alignment(horizontal="right")
+    ws[coord].alignment = Alignment(horizontal="right", vertical="center", indent=0, wrap_text=False, shrinkToFit=False)
 
 def _alinear_izquierda_seguro(ws, coord):
-    """Aplica alineación horizontal a la izquierda respetando celdas combinadas."""
+    """Aplica alineación izquierda (y vertical centrada) respetando celdas combinadas."""
     if not isinstance(coord, str):
         try:
             coord = coord.coordinate
@@ -47,9 +47,9 @@ def _alinear_izquierda_seguro(ws, coord):
     for rango in ws.merged_cells.ranges:
         if coord in rango:
             c = ws.cell(row=rango.min_row, column=rango.min_col)
-            c.alignment = Alignment(horizontal="left")
+            c.alignment = Alignment(horizontal="left", vertical="center", indent=0, wrap_text=False, shrinkToFit=False)
             return
-    ws[coord].alignment = Alignment(horizontal="left")
+    ws[coord].alignment = Alignment(horizontal="left", vertical="center", indent=0, wrap_text=False, shrinkToFit=False)
 
 def _sanitize_filename(name: str) -> str:
     """Quitar caracteres inválidos y espacios duplicados para filenames."""
@@ -81,6 +81,27 @@ def _set_equal_column_widths(ws, columns, target_px: int):
             ws.column_dimensions[c].width = width_units
     except Exception:
         pass
+
+def _apply_energy_style(ws, coord, size=11):
+    """Fuente un poco más grande para energía y shrinkToFit, manteniendo derecha/centro."""
+    if not isinstance(coord, str):
+        try:
+            coord = coord.coordinate
+        except Exception:
+            coord = str(coord)
+    for rango in ws.merged_cells.ranges:
+        if coord in rango:
+            cell = ws.cell(row=rango.min_row, column=rango.min_col)
+            break
+    else:
+        cell = ws[coord]
+    f = cell.font or Font()
+    cell.font = Font(
+        name=f.name, size=size, bold=f.bold, italic=f.italic, vertAlign=f.vertAlign,
+        underline=f.underline, strike=f.strike, color=f.color
+    )
+    # Igual alineación que los demás: derecha y centrado vertical
+    cell.alignment = Alignment(horizontal="right", vertical="center", indent=0, shrinkToFit=True, wrap_text=False)
 
 class NutrimentalExporter:
     def __init__(self, parent_window):
@@ -251,17 +272,21 @@ class NutrimentalExporter:
             _alinear_derecha_seguro(ws, "F18")
             _alinear_izquierda_seguro(ws, "G18")
 
-        # Contenido energético por envase (solo número) y contenido neto con unidad (F19 y F12)
-        energia_envase = resultados.get('por_envase', {}).get('energia_kcal','')
+        # Contenido energético por envase en F19 (mismo tamaño que el resto; solo derecha)
+        env = resultados.get('por_envase', {}) or {}
+        energia_envase_fmt = ""
         try:
-            if energia_envase != '':
-                energia_envase = int(float(energia_envase))
+            kcal_env = env.get('energia_kcal', '')
+            kj_env = env.get('energia_kj', '')
+            if str(kcal_env) != "":
+                energia_envase_fmt = self._fmt_kcal_kj(kcal_env, kj_env)
         except Exception:
-            pass
-        escribir_celda_segura(ws, "F19", energia_envase)
-        _alinear_derecha_seguro(ws, "F19")  # <-- NUEVO
-        escribir_celda_segura(ws, "G19", "kcal" if energia_envase != "" else "")  # <-- agrega unidad
-        _alinear_izquierda_seguro(ws, "G19")  # <-- alinear unidad a la izquierda
+            energia_envase_fmt = ""
+        escribir_celda_segura(ws, "F19", energia_envase_fmt)
+        _alinear_derecha_seguro(ws, "F19")  # misma alineación que los demás
+        escribir_celda_segura(ws, "G19", "")
+        _alinear_izquierda_seguro(ws, "G19")
+
         contenido_neto = entrada.get("contenido_neto", "")
         escribir_celda_segura(ws, "F12", f"{contenido_neto} {unidad}" if contenido_neto != "" else "")
 
@@ -274,8 +299,9 @@ class NutrimentalExporter:
         m = resultados.get("por_100g", {})
         p = resultados.get("por_porcion", {})
 
+        # Escribir energía combinada en una sola celda y vaciar la celda de unidad
         mappings_100 = [
-            ("F21", m.get("energia_kcal", ""), "G21", "kcal"),
+            ("F21", self._fmt_kcal_kj(m.get("energia_kcal",""), m.get("energia_kj","")), "G21", ""),
             ("F22", m.get("proteina", ""), "G22", "g"),
             ("F23", m.get("grasa_total", ""), "G23", "g"),
             ("F24", m.get("grasa_saturada", ""), "G24", "g"),
@@ -287,7 +313,7 @@ class NutrimentalExporter:
             ("F30", m.get("sodio", ""), "G30", "mg"),
         ]
         mappings_porcion = [
-            ("H21", p.get("energia_kcal", ""), "I21", "kcal"),
+            ("H21", self._fmt_kcal_kj(p.get("energia_kcal",""), p.get("energia_kj","")), "I21", ""),
             ("H22", p.get("proteina", ""), "I22", "g"),
             ("H23", p.get("grasa_total", ""), "I23", "g"),
             ("H24", p.get("grasa_saturada", ""), "I24", "g"),
@@ -308,55 +334,42 @@ class NutrimentalExporter:
         # Escribir siempre los valores por 100g
         for cel_val_100, val100, cel_unit, unit in mappings_100:
             val_fmt = _as_int_str(val100)
+            escribir_celda_segura(ws, cel_val_100, val_fmt)
             try:
-                escribir_celda_segura(ws, cel_val_100, val_fmt)
-            except Exception:
-                ws[cel_val_100] = val_fmt
-            try:
-                ws[cel_val_100].number_format = '0'
+                ws[cel_val_100].number_format = '@' if isinstance(val100, str) else '0'
             except Exception:
                 pass
-            _alinear_derecha_seguro(ws, cel_val_100)  # <-- NUEVO
+            _alinear_derecha_seguro(ws, cel_val_100)
+            if cel_val_100 == "F21":
+                _apply_energy_style(ws, "F21", size=11)  # más grande y ajusta para que no se corte
             try:
                 ws[cel_unit] = unit
             except Exception:
                 pass
 
-        # Si NO estamos en formato_100, escribir la columna de porción; si SÍ, limpiar esas celdas
+        # Porción (si aplica)
         if not formato_100:
             for cel_val_p, valp, cel_unit_p, unitp in mappings_porcion:
                 valp_fmt = _as_int_str(valp)
+                escribir_celda_segura(ws, cel_val_p, valp_fmt)
                 try:
-                    escribir_celda_segura(ws, cel_val_p, valp_fmt)
-                except Exception:
-                    ws[cel_val_p] = valp_fmt
-                try:
-                    ws[cel_val_p].number_format = '0'
+                    ws[cel_val_p].number_format = '@' if isinstance(valp, str) else '0'
                 except Exception:
                     pass
-                _alinear_derecha_seguro(ws, cel_val_p)  # <-- NUEVO
+                _alinear_derecha_seguro(ws, cel_val_p)
+                if cel_val_p == "H21":
+                    _apply_energy_style(ws, "H21", size=11)  # más grande y ajusta para que no se corte
                 try:
                     ws[cel_unit_p] = unitp
                 except Exception:
                     pass
         else:
-            # limpiar celdas de porción para evitar duplicados/confusión
             for cel_val_p, _, cel_unit_p, _ in mappings_porcion:
-                try:
-                    escribir_celda_segura(ws, cel_val_p, "")
-                except Exception:
-                    try:
-                        ws[cel_val_p] = ""
-                    except Exception:
-                        pass
-                try:
-                    ws[cel_val_p].number_format = '@'
-                except Exception:
-                    pass
-                try:
-                    ws[cel_unit_p] = ""
-                except Exception:
-                    pass
+                escribir_celda_segura(ws, cel_val_p, "")
+                try: ws[cel_val_p].number_format = '@'
+                except Exception: pass
+                try: ws[cel_unit_p] = ""
+                except Exception: pass
 
         # Agregar sellos de advertencia (usa cálculo en nutrimental.py)
         self.agregar_sellos_advertencia(ws, resultados)
@@ -586,29 +599,44 @@ class NutrimentalExporter:
                 except Exception:
                     pv_display = resultados["porciones_envase"]
                 datos_excel.append(["Porciones por envase", pv_display, ""])
-            for key in resultados["por_100g"].keys():
-                if key == "energia_kcal": nombre = "Contenido energético (kcal)"
-                elif key == "energia_kj": nombre = "Contenido energético (kJ)"
-                elif key == "sodio": nombre = "Sodio (mg)"
-                elif key == "grasa_trans": nombre = "Grasas trans (mg)"
-                elif key == "azucares_anadidos": nombre = "Azúcares añadidos (g)"
-                else: nombre = f"{key.replace('_',' ').title()} (g)"
-                # Asegurar enteros idénticos a la vista (los dicts ya tienen ints, pero forzamos por seguridad)
-                def _cast_int(v):
-                    try:
-                        return int(float(v))
-                    except Exception:
-                        return v
-                valor_100g = _cast_int(resultados["por_100g"][key])
-                valor_porcion = _cast_int(resultados["por_porcion"][key])
-                datos_excel.append([nombre, valor_100g, valor_porcion])
+
+            # Fila combinada de energía
+            energia_100 = self._fmt_kcal_kj(
+                resultados["por_100g"].get("energia_kcal", 0),
+                resultados["por_100g"].get("energia_kj", 0)
+            )
+            energia_por = self._fmt_kcal_kj(
+                resultados["por_porcion"].get("energia_kcal", 0),
+                resultados["por_porcion"].get("energia_kj", 0)
+            )
+            datos_excel.append(["Contenido energético", energia_100, energia_por])
+
+            # Resto de nutrimentos (sin energía)
+            def _cast_int(v):
+                try: return int(float(v))
+                except Exception: return v
+
+            orden = [
+                ("Proteínas", "proteina", "g"),
+                ("Grasas totales", "grasa_total", "g"),
+                ("Grasas saturadas", "grasa_saturada", "g"),
+                ("Grasas trans", "grasa_trans", "mg"),
+                ("Hidratos de carbono disponibles", "carbohidratos_disponibles", "g"),
+                ("Azúcares", "azucares", "g"),
+                ("Azúcares añadidos", "azucares_anadidos", "g"),
+                ("Fibra dietética", "fibra_dietetica", "g"),
+                ("Sodio", "sodio", "mg"),
+            ]
+            for nombre, key, unidad in orden:
+                v100 = _cast_int(resultados["por_100g"].get(key, ""))
+                vpor = _cast_int(resultados["por_porcion"].get(key, ""))
+                datos_excel.append([f"{nombre} ({unidad})", v100, vpor])
+
             if "por_envase" in resultados:
                 datos_excel.append(["","",""]); datos_excel.append(["POR ENVASE COMPLETO","",""])
-                for key, value in resultados["por_envase"].items():
-                    if key == "energia_kcal": nombre = "Contenido energético total (kcal)"
-                    elif key == "energia_kj": nombre = "Contenido energético total (kJ)"
-                    else: nombre = f"{key.replace('_',' ').title()}"
-                    datos_excel.append([nombre, value, ""])
+                env = resultados["por_envase"] or {}
+                energia_env = self._fmt_kcal_kj(env.get("energia_kcal", 0), env.get("energia_kj", 0))
+                datos_excel.append(["Contenido energético total", energia_env, ""])
             datos_excel.append(["","",""]); datos_excel.append(["SELLOS DE ADVERTENCIA","",""])
             sellos = {}
             calc = getattr(self.parent, "_calcular_sellos_advertencia", None)
@@ -646,3 +674,63 @@ class NutrimentalExporter:
             messagebox.showerror("Error", "No se pudo importar pandas. Asegúrate de que esté instalado:\npip install pandas openpyxl")
         except Exception as e:
             messagebox.showerror("Error", f"Error al exportar: {e}")
+
+    def _fmt_kcal_kj(self, kcal, kj):
+        try:
+            ikcal = int(float(kcal))
+        except Exception:
+            ikcal = 0
+        try:
+            ikj = int(float(kj))
+        except Exception:
+            ikj = 0
+        return f"{ikcal} kcal ({ikj} kJ)"
+
+    # Ejemplo: cuando construyes las filas para el PDF
+    def _build_rows(self, resultados):
+        por100 = resultados.get('por_100g', {}) or {}
+        porcion = resultados.get('por_porcion', {}) if not resultados.get('es_porcion_100g', False) else None
+
+        rows = []
+        # --- Contenido energético combinado en una sola fila ---
+        energia_100 = self._fmt_kcal_kj(por100.get('energia_kcal', 0), por100.get('energia_kj', 0))
+        if porcion:
+            energia_por = self._fmt_kcal_kj(porcion.get('energia_kcal', 0), porcion.get('energia_kj', 0))
+            rows.append(("Contenido energético", energia_100, energia_por))
+        else:
+            rows.append(("Contenido energético", energia_100))
+
+        # Resto de nutrimentos como números
+        def _int(v):
+            try: return int(float(v))
+            except Exception: return 0
+
+        def add_row(nombre, key, unidad=""):
+            v100 = _int(por100.get(key, 0))
+            if porcion:
+                vpor = _int(porcion.get(key, 0))
+                rows.append((f"{nombre} {unidad}".strip(), v100, vpor))
+            else:
+                rows.append((f"{nombre} {unidad}".strip(), v100))
+
+        add_row("Proteína", "proteina", "(g)")
+        add_row("Grasa total", "grasa_total", "(g)")
+        add_row("Grasa saturada", "grasa_saturada", "(g)")
+        add_row("Grasas trans", "grasa_trans", "(mg)")
+        add_row("Carbohidratos disponibles", "carbohidratos_disponibles", "(g)")
+        add_row("Azúcares", "azucares", "(g)")
+        add_row("Azúcares añadidos", "azucares_anadidos", "(g)")
+        add_row("Fibra dietética", "fibra_dietetica", "(g)")
+        add_row("Sodio", "sodio", "(mg)")
+
+        return rows
+
+    # Ejemplo: donde pintas el encabezado/metadata en el PDF
+    def _render_header(self, resultados, canvas):
+        # ...existing code...
+        env = resultados.get('por_envase', {}) or {}
+        if env:
+            energia_envase = self._fmt_kcal_kj(env.get('energia_kcal', 0), env.get('energia_kj', 0))
+            linea = f"Energía total envase: {energia_envase}"
+            # Dibuja esta línea con tu motor actual (reportlab/canvas, etc.)
+            # ...existing code...
