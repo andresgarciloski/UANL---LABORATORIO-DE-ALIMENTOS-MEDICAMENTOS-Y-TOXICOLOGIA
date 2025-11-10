@@ -193,7 +193,8 @@ class NutrimentalExporter:
             return int(round(width * 7 + 5))
 
         try:
-            col_letters = ["M", "N", "O", "P", "Q"]
+            # columnas donde se colocan los 5 sellos: M, O, Q, S, U
+            col_letters = ["M", "O", "Q", "S", "U"]
             min_col_px = min(_col_px(c) for c in col_letters)
             GAP_INNER = 4  # margen interno más pequeño
             base_side = max(64, min(140, min_col_px - GAP_INNER * 2))
@@ -203,23 +204,22 @@ class NutrimentalExporter:
         except Exception:
             STAMP_SIZE = (144, 144)  # fallback un poco mayor
 
-        # Offsets horizontales para CENTRAR el sello en cada columna (distancia visual uniforme)
-        x_offsets = {c: max(0, (_col_px(c) - STAMP_SIZE[0]) // 2) for c in ["M", "N", "O", "P", "Q"]}
-
-        sellos_config = {
-            "exceso_azucares":           {"imagen": "azucares.jpg",   "celda": "M18", "size": STAMP_SIZE},
-            "exceso_calorias":           {"imagen": "calorias.jpg",   "celda": "O18", "size": STAMP_SIZE},
-            "exceso_grasas_saturadas":   {"imagen": "saturadas.jpg",  "celda": "Q18", "size": STAMP_SIZE},
-            "exceso_sodio":              {"imagen": "sodio.jpg",      "celda": "S18", "size": STAMP_SIZE},
-            "exceso_grasas_trans":       {"imagen": "trans.jpg",      "celda": "U18", "size": STAMP_SIZE},
-        }
+        # Orden requerido: calorías, azúcares, grasas saturadas, grasa trans, sodio
+        # Celdas en orden izquierda→derecha: M18, O18, Q18, S18, U18
+        sellos_config = [
+            ("exceso_calorias",         {"imagen": "calorias.jpg",  "celda": "L18", "size": STAMP_SIZE}),
+            ("exceso_azucares",         {"imagen": "azucares.jpg",  "celda": "N18", "size": STAMP_SIZE}),
+            ("exceso_grasas_saturadas", {"imagen": "saturadas.jpg", "celda": "P18", "size": STAMP_SIZE}),
+            ("exceso_grasas_trans",     {"imagen": "trans.jpg",     "celda": "R18", "size": STAMP_SIZE}),
+            ("exceso_sodio",            {"imagen": "sodio.jpg",     "celda": "T18", "size": STAMP_SIZE}),
+        ]
 
         # No modificar anchos/altos de filas/columnas; solo superponer imágenes más grandes
         # (Se deja el ancho original de las columnas M–Q)
 
         # Inserción de imágenes
         ruta_base = os.path.join(os.path.dirname(__file__), "..", "img", "Sellos")
-        for key, cfg in sellos_config.items():
+        for key, cfg in sellos_config:
             try:
                 if not sellos.get(key):
                     continue
@@ -642,9 +642,24 @@ class NutrimentalExporter:
             calc = getattr(self.parent, "_calcular_sellos_advertencia", None)
             if callable(calc):
                 sellos = calc(resultados)
+            # Forzar el orden: calorías, azúcares, grasas saturadas, grasa trans, sodio
+            orden_sellos = [
+                "exceso_calorias",
+                "exceso_azucares",
+                "exceso_grasas_saturadas",
+                "exceso_grasas_trans",
+                "exceso_sodio",
+            ]
+            for sello in orden_sellos:
+                if sello in sellos:
+                    aplica = sellos[sello]
+                    nombre_sello = sello.replace("exceso_", "EXCESO DE ").upper()
+                    datos_excel.append([nombre_sello, "SÍ" if aplica else "NO", ""])
+            # Cualquier sello extra no contemplado
             for sello, aplica in sellos.items():
-                nombre_sello = sello.replace("exceso_", "EXCESO DE ").upper()
-                datos_excel.append([nombre_sello, "SÍ" if aplica else "NO", ""])
+                if sello not in orden_sellos:
+                    nombre_sello = sello.replace("exceso_", "EXCESO DE ").upper()
+                    datos_excel.append([nombre_sello, "SÍ" if aplica else "NO", ""])
             df = pd.DataFrame(datos_excel, columns=["Componente","Valor 100g/mL","Valor Porción"])
             try:
                 desktop = os.path.join(os.path.expanduser("~"), "Desktop")
